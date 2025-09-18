@@ -24,3 +24,15 @@ Plataforma_microlearning_TallerProyecto/
 │ └── views/ # Vistas Blade (interfaz de usuario)
 └── routes/ # Definición de rutas (web.php, api.php, etc.)
 ```
+## 🔄 Relación entre MVC y Arquitectura por Capas
+
+Este proyecto combina el patrón **MVC** con una **arquitectura por capas** para mejorar la organización y el mantenimiento del código:
+
+- **Modelo (Model)**: Ubicado en la **capa de dominio** (`app/Models/`). Representa las entidades de negocio.
+- **Vista (View)**: Ubicada en la **capa de presentación** (`resources/views/`). Muestra los datos al usuario.
+- **Controlador (Controller)**: Ubicado en la **capa de presentación** (`app/Http/Controllers/`). Maneja las solicitudes HTTP.
+
+La **base de datos** se maneja a través de:
+- **Migrations y Seeders** (`database/migrations/`, `database/seeders/`): Definen la estructura y datos iniciales.
+- **Repositorios** (`app/Repositories/`): Interfaz para acceder a los datos.
+---
