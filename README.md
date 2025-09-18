@@ -10,7 +10,10 @@ Este proyecto sigue una **arquitectura por capas** para garantizar escalabilidad
 
 ```mermaid
 graph TD;
- 
+    Presentacion-->LogicaNegocio;
+    LogicaNegocio-->Persistencia;
+    Persistencia-->Dominio;
+
 Plataforma_microlearning_TallerProyecto/
 ├── app/
 │   ├── Http/
