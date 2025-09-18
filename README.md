@@ -17,13 +17,13 @@ La estructura de carpetas es la siguiente:
 
 Plataforma_microlearning_TallerProyecto/
 ├── app/
-│   ├── Http/
-│   │   ├── Controllers/   # Controladores
-│   │   └── Requests/      # Validaciones de solicitudes
-│   └── Models/            # Modelos
+│ ├── Http/
+│ │ ├── Controllers/ # Controladores de la lógica de negocio
+│ │ └── Requests/ # Validaciones de formularios y solicitudes
+│ └── Models/ # Modelos de la base de datos
 ├── database/
-│   ├── migrations/        # Estructura de la base de datos
-│   └── seeders/           # Datos iniciales
+│ ├── migrations/ # Migraciones para crear/modificar tablas
+│ └── seeders/ # Datos iniciales (semillas)
 ├── resources/
-│   └── views/              # Vistas
-└── routes/                 # Rutas
+│ └── views/ # Vistas Blade (interfaz de usuario)
+└── routes/ # Definición de rutas (web.php, api.php, etc.)
