@@ -10,7 +10,7 @@ Su objetivo es facilitar el **aprendizaje en módulos cortos**, fomentando la re
 El proyecto sigue una **arquitectura por capas**, lo que permite mayor **escalabilidad, organización y modularidad**.  
 
 La estructura de carpetas es la siguiente:
-
+```
 Plataforma_microlearning_TallerProyecto/
 ├── app/
 │ ├── Http/
@@ -23,3 +23,4 @@ Plataforma_microlearning_TallerProyecto/
 ├── resources/
 │ └── views/ # Vistas Blade (interfaz de usuario)
 └── routes/ # Definición de rutas (web.php, api.php, etc.)
+```
