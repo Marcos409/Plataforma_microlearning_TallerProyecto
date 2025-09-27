@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use App\Models\User;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\UserController; 
 use App\Http\Controllers\Student\DiagnosticController as StudentDiagnosticController;
 use App\Http\Controllers\Student\DashboardController as StudentDashboardController;
 use App\Http\Controllers\Student\ContentController as StudentContentController;
@@ -147,4 +148,19 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/generate-recommendations', [PredictionController::class, 'generateRecommendations'])->name('generate-recommendations');
         Route::post('/update-learning-path', [PredictionController::class, 'updateLearningPath'])->name('update-learning-path');
     });
+
+    // Gestión completa de usuarios
+    Route::prefix('users')->name('users.')->group(function () {
+        Route::get('/', [UserController::class, 'index'])->name('index');
+        Route::get('/create', [UserController::class, 'create'])->name('create');
+        Route::post('/', [UserController::class, 'store'])->name('store');
+        Route::get('/pending', [UserController::class, 'pending'])->name('pending');
+        Route::post('/bulk-assign-role', [UserController::class, 'bulkAssignRole'])->name('bulk-assign-role');
+        Route::get('/export', [UserController::class, 'export'])->name('export');
+        Route::get('/{user}', [UserController::class, 'show'])->name('show');
+        Route::get('/{user}/edit', [UserController::class, 'edit'])->name('edit');
+        Route::put('/{user}', [UserController::class, 'update'])->name('update');
+        Route::delete('/{user}', [UserController::class, 'destroy'])->name('destroy');
+        Route::patch('/{user}/role', [UserController::class, 'updateRole'])->name('update-role');
+});
 });

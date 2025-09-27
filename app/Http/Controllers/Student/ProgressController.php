@@ -3,106 +3,94 @@
 namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
-use App\Models\StudentProgress;
-use App\Models\DiagnosticResponse;
-use App\Models\LearningPath;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class ProgressController extends Controller
 {
     public function index()
     {
-        $user = auth()->user();
-
-        // Progreso general por materia
-        $subjectProgress = StudentProgress::where('user_id', $user->id)
-            ->get()
-            ->groupBy('subject_area');
-
-        // Progreso en diagnósticos
-        $diagnosticProgress = DiagnosticResponse::where('user_id', $user->id)
-            ->with(['diagnostic', 'question'])
-            ->get()
-            ->groupBy('diagnostic.subject_area')
-            ->map(function ($responses) {
-                $totalQuestions = $responses->count();
-                $correctAnswers = $responses->where('is_correct', true)->count();
-                $score = $totalQuestions > 0 ? ($correctAnswers / $totalQuestions) * 100 : 0;
-                
-                return [
-                    'total_questions' => $totalQuestions,
-                    'correct_answers' => $correctAnswers,
-                    'score' => $score,
-                    'last_attempt' => $responses->max('created_at')
+        $user = Auth::user();
+        
+        // Obtener progreso del estudiante desde la base de datos
+        $studentProgress = $user->studentProgress ?? collect([]);
+        $diagnosticResults = $user->diagnosticResults ?? collect([]);
+        $learningPaths = $user->learningPaths ?? collect([]);
+        
+        // Calcular estadísticas
+        $totalActivities = $studentProgress->sum('completed_activities') ?? 0;
+        $totalTimeSpent = $studentProgress->sum('total_time_spent') ?? 0;
+        $overallProgress = $studentProgress->avg('progress_percentage') ?? 0;
+        
+        // Actividades de la última semana
+        $recentActivities = $studentProgress->where('last_activity', '>=', now()->subDays(7))->sum('completed_activities') ?? 0;
+        
+        // Progreso por materia
+        $progressBySubject = [];
+        foreach ($studentProgress as $progress) {
+            $subject = $progress->subject_area ?? 'Sin materia';
+            if (!isset($progressBySubject[$subject])) {
+                $progressBySubject[$subject] = [
+                    'percentage' => 0,
+                    'completed' => 0,
+                    'total' => 0
                 ];
-            });
-
-        // Progreso en rutas de aprendizaje
-        $learningPathProgress = LearningPath::where('user_id', $user->id)
-            ->with('contents')
-            ->get();
-
-        // Tiempo total estudiado
-        $totalTimeSpent = StudentProgress::where('user_id', $user->id)
-            ->sum('total_time_spent');
-
-        // Actividades completadas esta semana
-        $weeklyProgress = StudentProgress::where('user_id', $user->id)
-            ->where('last_activity', '>=', now()->subWeek())
-            ->sum('completed_activities');
-
+            }
+            $progressBySubject[$subject]['percentage'] = $progress->progress_percentage ?? 0;
+            $progressBySubject[$subject]['completed'] += $progress->completed_activities ?? 0;
+            $progressBySubject[$subject]['total'] += $progress->total_activities ?? 0;
+        }
+        
+        // Si no hay datos, mostrar datos de ejemplo
+        if (empty($progressBySubject)) {
+            $progressBySubject = [
+                'Matemáticas' => ['percentage' => 0, 'completed' => 0, 'total' => 0],
+                'Física' => ['percentage' => 0, 'completed' => 0, 'total' => 0],
+                'Química' => ['percentage' => 0, 'completed' => 0, 'total' => 0],
+            ];
+        }
+        
+        // Progreso reciente (últimos 5 registros)
+        $recentProgress = $studentProgress->sortByDesc('last_activity')->take(5);
+        
         return view('student.progress.index', compact(
-            'subjectProgress', 
-            'diagnosticProgress', 
-            'learningPathProgress',
+            'totalActivities',
+            'overallProgress', 
             'totalTimeSpent',
-            'weeklyProgress'
+            'recentActivities',
+            'progressBySubject',
+            'recentProgress',
+            'diagnosticResults',
+            'learningPaths'
         ));
     }
 
-    public function bySubject(Request $request, $subject)
+    public function bySubject($subject)
     {
-        $user = auth()->user();
-
-        // Progreso detallado por tema en la materia
-        $topicProgress = StudentProgress::where('user_id', $user->id)
+        $user = Auth::user();
+        
+        // Obtener progreso específico de la materia
+        $subjectProgress = $user->studentProgress()
             ->where('subject_area', $subject)
-            ->orderBy('topic')
-            ->get();
+            ->orderBy('last_activity', 'desc')
+            ->get() ?? collect([]);
+        
+        // Si no hay datos reales, mostrar datos de ejemplo
+        if ($subjectProgress->isEmpty()) {
+            $subjectProgress = collect([
+                (object)[
+                    'topic' => 'Tema general',
+                    'completed_activities' => 0,
+                    'total_activities' => 0,
+                    'progress_percentage' => 0,
+                    'total_time_spent' => 0,
+                    'average_score' => 0,
+                    'last_activity' => null
+                ]
+            ]);
+        }
 
-        // Diagnósticos de la materia
-        $diagnosticResults = DiagnosticResponse::where('user_id', $user->id)
-            ->whereHas('diagnostic', function($query) use ($subject) {
-                $query->where('subject_area', $subject);
-            })
-            ->with(['diagnostic', 'question'])
-            ->get()
-            ->groupBy('diagnostic_id')
-            ->map(function ($responses) {
-                $diagnostic = $responses->first()->diagnostic;
-                $totalQuestions = $responses->count();
-                $correctAnswers = $responses->where('is_correct', true)->count();
-                
-                return [
-                    'diagnostic' => $diagnostic,
-                    'total_questions' => $totalQuestions,
-                    'correct_answers' => $correctAnswers,
-                    'score' => $totalQuestions > 0 ? ($correctAnswers / $totalQuestions) * 100 : 0,
-                    'date' => $responses->first()->created_at
-                ];
-            });
-
-        // Rutas de aprendizaje de la materia
-        $learningPaths = LearningPath::where('user_id', $user->id)
-            ->where('subject_area', $subject)
-            ->with(['contents.content'])
-            ->get();
-
-        return view('student.progress.by-subject', compact(
-            'subject', 
-            'topicProgress', 
-            'diagnosticResults', 
-            'learningPaths'
-        ));
+        return view('student.progress.by-subject', compact('subject', 'subjectProgress'));
     }
 }

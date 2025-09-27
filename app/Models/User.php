@@ -26,6 +26,7 @@ class User extends Authenticatable
         'phone',
         'role_id',
         'active',
+        'last_activity',
     ];
 
     /**
@@ -48,6 +49,7 @@ class User extends Authenticatable
         'password' => 'hashed',
         'active' => 'boolean',
         'semester' => 'integer',
+        'last_activity' => 'datetime',
     ];
 
     // RELACIONES
@@ -87,43 +89,43 @@ class User extends Authenticatable
     /**
      * Relación con las alertas de riesgo
      */
-    // public function riskAlerts()
-    // {
-    //     return $this->hasMany(RiskAlert::class);
-    // }
+    public function riskAlerts()
+    {
+        return $this->hasMany(RiskAlert::class);
+    }
 
     /**
-     * Relación con los resultados de diagnósticos
+     * Relación con las respuestas de diagnósticos
      */
-    // public function diagnosticResults()
-    // {
-    //     return $this->hasMany(DiagnosticResult::class);
-    // }
+    public function diagnosticResponses()
+    {
+        return $this->hasMany(DiagnosticResponse::class);
+    }
 
     // MÉTODOS DE VERIFICACIÓN DE ROLES
 
     /**
      * Verificar si el usuario es administrador
      */
-    public function isAdmin()
+    public function isAdmin(): bool
     {
-        return $this->role && $this->role->name === 'Administrador';
+        return $this->role_id == 1;
     }
 
     /**
      * Verificar si el usuario es docente
      */
-    public function isTeacher()
+    public function isTeacher(): bool
     {
-        return $this->role && $this->role->name === 'Docente';
+        return $this->role_id == 2;
     }
 
     /**
      * Verificar si el usuario es estudiante
      */
-    public function isStudent()
+    public function isStudent(): bool
     {
-        return $this->role && $this->role->name === 'Estudiante';
+        return $this->role_id == 3;
     }
 
     // MÉTODOS AUXILIARES
@@ -131,7 +133,7 @@ class User extends Authenticatable
     /**
      * Obtener el nombre del rol
      */
-    public function getRoleName()
+    public function getRoleName(): string
     {
         return $this->role ? $this->role->name : 'Sin rol';
     }
@@ -139,7 +141,7 @@ class User extends Authenticatable
     /**
      * Verificar si el usuario está activo
      */
-    public function isActive()
+    public function isActive(): bool
     {
         return $this->active;
     }
@@ -163,12 +165,36 @@ class User extends Authenticatable
     }
 
     /**
+     * Scope para filtrar estudiantes
+     */
+    public function scopeStudents($query)
+    {
+        return $query->where('role_id', 3);
+    }
+
+    /**
+     * Scope para filtrar docentes
+     */
+    public function scopeTeachers($query)
+    {
+        return $query->where('role_id', 2);
+    }
+
+    /**
+     * Scope para filtrar administradores
+     */
+    public function scopeAdmins($query)
+    {
+        return $query->where('role_id', 1);
+    }
+
+    /**
      * Obtener el progreso general del estudiante
      */
-    public function getOverallProgress()
+    public function getOverallProgress(): float
     {
         if (!$this->isStudent()) {
-            return 0;
+            return 0.0;
         }
 
         $progress = $this->studentProgress()->avg('progress_percentage');
@@ -178,36 +204,76 @@ class User extends Authenticatable
     /**
      * Obtener el tiempo total gastado en actividades
      */
-    public function getTotalTimeSpent()
+    public function getTotalTimeSpent(): int
     {
         if (!$this->isStudent()) {
             return 0;
         }
 
-        return $this->studentProgress()->sum('total_time_spent');
+        return $this->studentProgress()->sum('total_time_spent') ?? 0;
     }
 
     /**
      * Obtener el número de actividades completadas
      */
-    public function getCompletedActivitiesCount()
+    public function getCompletedActivitiesCount(): int
     {
         if (!$this->isStudent()) {
             return 0;
         }
 
-        return $this->studentProgress()->sum('completed_activities');
+        return $this->studentProgress()->sum('completed_activities') ?? 0;
     }
 
     /**
      * Verificar si el estudiante tiene alertas de riesgo activas
      */
-    // public function hasActiveRiskAlerts()
-    // {
-    //     if (!$this->isStudent()) {
-    //         return false;
-    //     }
+    public function hasActiveRiskAlerts(): bool
+    {
+        if (!$this->isStudent()) {
+            return false;
+        }
 
-    //     return $this->riskAlerts()->where('is_resolved', false)->exists();
-    // }
+        return $this->riskAlerts()->where('is_resolved', false)->exists();
+    }
+
+    /**
+     * Obtener alertas de riesgo activas
+     */
+    public function getActiveRiskAlerts()
+    {
+        return $this->riskAlerts()->where('is_resolved', false)->get();
+    }
+
+    /**
+     * Obtener el número de recomendaciones pendientes
+     */
+    public function getPendingRecommendationsCount(): int
+    {
+        if (!$this->isStudent()) {
+            return 0;
+        }
+
+        return $this->recommendations()->where('is_completed', false)->count();
+    }
+
+    /**
+     * Actualizar última actividad
+     */
+    public function updateLastActivity(): bool
+    {
+        return $this->update(['last_activity' => now()]);
+    }
+
+    /**
+     * Verificar si el usuario ha estado inactivo por más de X días
+     */
+    public function isInactiveFor(int $days): bool
+    {
+        if (!$this->last_activity) {
+            return true;
+        }
+
+        return $this->last_activity->diffInDays(now()) > $days;
+    }
 }
