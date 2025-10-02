@@ -9,7 +9,7 @@
             <!-- Header -->
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h1><i class="fas fa-user-plus me-2"></i>Crear Nuevo Usuario</h1>
-                <a href="{{ route('users.index') }}" class="btn btn-secondary">
+                <a href="{{ route('admin.users.index') }}" class="btn btn-secondary">
                     <i class="fas fa-arrow-left me-1"></i>Volver
                 </a>
             </div>
@@ -17,7 +17,7 @@
             <!-- Formulario -->
             <div class="card">
                 <div class="card-body">
-                    <form method="POST" action="{{ route('users.store') }}">
+                    <form method="POST" action="{{ route('admin.users.store') }}">
                         @csrf
 
                         <!-- Nombre -->
@@ -120,7 +120,7 @@
 
                         <!-- Botones -->
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                            <a href="{{ route('users.index') }}" class="btn btn-outline-secondary me-md-2">
+                            <a href="{{ route('admin.users.index') }}" class="btn btn-outline-secondary me-md-2">
                                 <i class="fas fa-times me-1"></i>Cancelar
                             </a>
                             <button type="submit" class="btn btn-success">

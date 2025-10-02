@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Student;
 
+use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\LearningPath;
 use App\Models\Recommendation;
@@ -12,20 +13,17 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        $user = auth()->user();
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
 
-        // Obtener progreso general
-        $overallProgress = StudentProgress::where('user_id', $user->id)
-            ->avg('progress_percentage') ?? 0;
-
-        // Rutas de aprendizaje activas
-        $learningPaths = LearningPath::where('user_id', $user->id)
-            ->where('status', 'active')
-            ->with('contents.content')
-            ->get();
-
+        // Progreso general
+        $overallProgress = $user->studentProgress()->avg('progress_percentage') ?? 0;
+        
+        // Rutas de aprendizaje
+        $learningPaths = $user->learningPaths;
+        
         // Recomendaciones pendientes
-        $recommendations = Recommendation::where('user_id', $user->id)
+        $recommendations = $user->recommendations()
             ->where('is_completed', false)
             ->with('content')
             ->orderBy('priority')
@@ -33,14 +31,14 @@ class DashboardController extends Controller
             ->get();
 
         // Alertas de riesgo activas
-        $riskAlerts = RiskAlert::where('user_id', $user->id)
+        $riskAlerts = $user->riskAlerts()
             ->where('is_resolved', false)
             ->orderBy('severity')
             ->orderBy('created_at', 'desc')
             ->get();
 
         // Progreso por materia
-        $subjectProgress = StudentProgress::where('user_id', $user->id)
+        $subjectProgress = $user->studentProgress()
             ->select('subject_area', 'progress_percentage', 'average_score')
             ->get()
             ->groupBy('subject_area');
@@ -57,8 +55,13 @@ class DashboardController extends Controller
             ->flatten();
 
         return view('student.dashboard', compact(
-            'overallProgress', 'learningPaths', 'recommendations', 
-            'riskAlerts', 'subjectProgress', 'recentActivity'
+            'user',
+            'overallProgress', 
+            'learningPaths', 
+            'recommendations', 
+            'riskAlerts', 
+            'subjectProgress', 
+            'recentActivity'
         ));
     }
 }

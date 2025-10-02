@@ -32,7 +32,7 @@ class ContentController extends Controller
             });
         }
 
-        $contents = $query->orderBy('title')->paginate(12);
+        $contents = $query->orderBy('created_at', 'desc')->paginate(12);
 
         // Si no hay datos en la BD, usar datos de ejemplo
         if ($contents->isEmpty()) {
@@ -77,7 +77,7 @@ class ContentController extends Controller
         ]);
 
         // Crear contenido (ajusta según tu modelo)
-        // ContentLibrary::create($request->all());
+        ContentLibrary::create($request->all());
         
         return redirect()->route('admin.content.index')
             ->with('success', 'Contenido creado exitosamente.');

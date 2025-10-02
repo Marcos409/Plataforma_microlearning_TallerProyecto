@@ -66,13 +66,32 @@
                         </h5>
                         
                         @auth
-                            <div class="text-center mb-4">
-                                <div class="bg-white rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
-                                    <i class="fas fa-user text-primary fa-2x"></i>
-                                </div>
-                                <p class="text-white mt-2 mb-1">{{ Auth::user()->name }}</p>
-                                <small class="text-light">{{ Auth::user()->role->name ?? 'Usuario' }}</small>
+                        <div class="text-center mb-4">
+                            <div class="bg-white rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                                <i class="fas fa-user text-primary fa-2x"></i>
                             </div>
+                            <p class="text-white mt-2 mb-1">{{ Auth::user()->name }}</p>
+                            
+                            @if(Auth::user()->role)
+                                @if(Auth::user()->isAdmin())
+                                    <span class="badge bg-danger">
+                                        <i class="fas fa-crown me-1"></i>{{ Auth::user()->role->name }}
+                                    </span>
+                                @elseif(Auth::user()->isTeacher())
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-chalkboard-teacher me-1"></i>{{ Auth::user()->role->name }}
+                                    </span>
+                                @elseif(Auth::user()->isStudent())
+                                    <span class="badge bg-info">
+                                        <i class="fas fa-user-graduate me-1"></i>{{ Auth::user()->role->name }}
+                                    </span>
+                                @else
+                                    <span class="badge bg-secondary">{{ Auth::user()->role->name }}</span>
+                                @endif
+                            @else
+                                <small class="text-light">Usuario</small>
+                            @endif
+                        </div>
 
                             <ul class="nav flex-column">
                                 @if(Auth::user()->isStudent())
@@ -190,6 +209,6 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
-    @yield('scripts')
+    @stack('scripts')
 </body>
 </html>

@@ -1,15 +1,51 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">Mi Dashboard</h1>
-    <div class="btn-toolbar mb-2 mb-md-0">
-        <div class="btn-group me-2">
-            <button type="button" class="btn btn-sm btn-outline-secondary">
-                <i class="fas fa-calendar"></i> Hoy: {{ date('d/m/Y') }}
-            </button>
+<div class="container">
+    <div class="row mb-4">
+        <!-- Sidebar -->
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user-shield me-2"></i>Panel de Estudiante
+                    </h5>
+                    <p class="text-muted">
+                        Bienvenido, {{ Auth::user()->name }}
+                        @if(Auth::user()->role)
+                            - <span class="badge bg-info">{{ Auth::user()->role->name }}</span>
+                        @endif
+                    </p>
+                </div>
+                
+        
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">Tu Información</h5>
+                                <p><strong>Nombre:</strong> {{ Auth::user()->name }}</p>
+                                <p><strong>Email:</strong> {{ Auth::user()->email }}</p>
+                                @if(Auth::user()->role)
+                                    <p><strong>Rol:</strong> {{ Auth::user()->role->name }}</p>
+                                @endif
+                                @if(Auth::user()->student_code)
+                                    <p><strong>Código:</strong> {{ Auth::user()->student_code }}</p>
+                                @endif
+                                @if(Auth::user()->career)
+                                    <p><strong>Carrera:</strong> {{ Auth::user()->career }}</p>
+                                @endif
+                            </div>
+                        </div>
+                
+                        <div class="list-group list-group-flush">
+                            <a href="{{ route('admin.settings.index') }}" class="list-group-item list-group-item-action">
+                                <i class="fas fa-cog me-2"></i>Configuración
+                            </a>
+                        </div>
+                </div>  
         </div>
-    </div>
+        </div>
+    
 </div>
 
 <!-- Alertas de Riesgo -->

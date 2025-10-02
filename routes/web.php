@@ -3,8 +3,8 @@
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use App\Models\User;
-use App\Http\Controllers\HomeController;
-use App\Http\Controllers\UserController; 
+use App\Http\Controllers\Admin\SettingsController;
+use App\Http\Controllers\Admin\AdminUserController as AdminUserController;
 use App\Http\Controllers\Student\DiagnosticController as StudentDiagnosticController;
 use App\Http\Controllers\Student\DashboardController as StudentDashboardController;
 use App\Http\Controllers\Student\ContentController as StudentContentController;
@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\ContentController as AdminContentController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Teacher\DashboardController as TeacherDashboardController;
 use App\Http\Controllers\Teacher\StudentProgressController as TeacherStudentController;
+use App\Http\Controllers\RoleController;
 use App\Http\Controllers\AI\PredictionController;
 
 Auth::routes();
@@ -81,11 +82,43 @@ Route::middleware(['auth'])->group(function () {
     // Rutas para Administradores
     Route::prefix('admin')->name('admin.')->middleware('role:admin')->group(function () {
         Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
-        
+        Route::patch('users/{user}/update-role', [AdminUserController::class, 'updateRole'])->name('users.update-role');
+        Route::patch('users/{user}/assign-role', [AdminUserController::class, 'assignRole'])->name('users.assign-role');
+
         // Gestión de estudiantes
         Route::resource('students', AdminStudentController::class);
         Route::get('/students/export', [AdminStudentController::class, 'export'])->name('students.export');
         
+        // Gestión completa de usuarios
+        Route::prefix('users')->name('users.')->group(function () {
+            Route::get('/', [AdminUserController::class, 'index'])->name('index');
+            Route::get('/create', [AdminUserController::class, 'create'])->name('create');
+            Route::post('/', [AdminUserController::class, 'store'])->name('store');
+            Route::get('/pending', [AdminUserController::class, 'pending'])->name('pending');
+            Route::post('/bulk-assign-role', [AdminUserController::class, 'bulkAssignRole'])->name('bulk-assign-role');
+            Route::get('/export', [AdminUserController::class, 'export'])->name('export');
+            Route::get('/{user}', [AdminUserController::class, 'show'])->name('show');
+            Route::get('/{user}/edit', [AdminUserController::class, 'edit'])->name('edit');
+            Route::put('/{user}', [AdminUserController::class, 'update'])->name('update');
+            Route::delete('/{user}', [AdminUserController::class, 'destroy'])->name('destroy');
+            Route::patch('/{user}/role', [AdminUserController::class, 'updateRole'])->name('update-role');
+        });
+
+        // Gestión de roles
+        Route::prefix('roles')->name('roles.')->group(function () {
+            Route::get('/', [RoleController::class, 'index'])->name('index');
+            Route::get('/users', [RoleController::class, 'getUsers'])->name('users');
+            Route::post('/assign', [RoleController::class, 'assignRole'])->name('assign');
+            Route::post('/assign-massive', [RoleController::class, 'assignMassiveRoles'])->name('assign.massive');
+            Route::post('/remove', [RoleController::class, 'removeRole'])->name('remove');
+        });
+        
+        // Configuración de cuenta
+Route::prefix('settings')->name('settings.')->group(function () {
+    Route::get('/', [App\Http\Controllers\Admin\SettingsController::class, 'index'])->name('index');
+    Route::put('/profile', [App\Http\Controllers\Admin\SettingsController::class, 'updateProfile'])->name('update-profile');
+    Route::put('/password', [App\Http\Controllers\Admin\SettingsController::class, 'updatePassword'])->name('update-password');
+});
         // Gestión de diagnósticos
         Route::resource('diagnostics', AdminDiagnosticController::class);
         Route::prefix('diagnostics/{diagnostic}/questions')->name('diagnostics.questions.')->group(function () {
@@ -148,19 +181,4 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/generate-recommendations', [PredictionController::class, 'generateRecommendations'])->name('generate-recommendations');
         Route::post('/update-learning-path', [PredictionController::class, 'updateLearningPath'])->name('update-learning-path');
     });
-
-    // Gestión completa de usuarios
-    Route::prefix('users')->name('users.')->group(function () {
-        Route::get('/', [UserController::class, 'index'])->name('index');
-        Route::get('/create', [UserController::class, 'create'])->name('create');
-        Route::post('/', [UserController::class, 'store'])->name('store');
-        Route::get('/pending', [UserController::class, 'pending'])->name('pending');
-        Route::post('/bulk-assign-role', [UserController::class, 'bulkAssignRole'])->name('bulk-assign-role');
-        Route::get('/export', [UserController::class, 'export'])->name('export');
-        Route::get('/{user}', [UserController::class, 'show'])->name('show');
-        Route::get('/{user}/edit', [UserController::class, 'edit'])->name('edit');
-        Route::put('/{user}', [UserController::class, 'update'])->name('update');
-        Route::delete('/{user}', [UserController::class, 'destroy'])->name('destroy');
-        Route::patch('/{user}/role', [UserController::class, 'updateRole'])->name('update-role');
-});
 });

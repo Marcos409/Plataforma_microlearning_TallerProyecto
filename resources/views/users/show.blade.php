@@ -19,10 +19,10 @@
                     </span>
                     
                     <div class="d-grid gap-2">
-                        <a href="{{ route('users.edit', $user) }}" class="btn btn-primary">
+                        <a href="{{ route('admin.users.edit', $user) }}" class="btn btn-primary">
                             <i class="fas fa-edit me-1"></i>Editar Usuario
                         </a>
-                        <a href="{{ route('users.index') }}" class="btn btn-outline-secondary">
+                        <a href="{{ route('admin.users.index') }}" class="btn btn-outline-secondary">
                             <i class="fas fa-arrow-left me-1"></i>Volver a Lista
                         </a>
                     </div>
@@ -56,7 +56,7 @@
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h1><i class="fas fa-user me-2"></i>Detalles del Usuario</h1>
                 <div class="btn-group" role="group">
-                    <a href="{{ route('users.edit', $user) }}" class="btn btn-primary">
+                    <a href="{{ route('admin.users.edit', $user) }}" class="btn btn-primary">
                         <i class="fas fa-edit me-1"></i>Editar
                     </a>
                     <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
@@ -201,7 +201,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <form method="POST" action="{{ route('users.destroy', $user) }}" class="d-inline">
+                <form method="POST" action="{{ route('admin.users.destroy', $user) }}" class="d-inline">
                     @csrf
                     @method('DELETE')
                     <button type="submit" class="btn btn-danger">Eliminar Usuario</button>

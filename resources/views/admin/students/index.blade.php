@@ -11,8 +11,8 @@
                         <a href="{{ route('admin.students.create') }}" class="btn btn-primary">
                             <i class="fas fa-plus"></i> Nuevo Estudiante
                         </a>
-                        <a href="{{ route('admin.students.export') }}" class="btn btn-success">
-                            <i class="fas fa-download"></i> Exportar
+                        <a href="{{ route('admin.users.export', ['students_only' => true]) }}" class="btn btn-info">
+                            <i class="fas fa-download me-1"></i>Exportar CSV
                         </a>
                     </div>
                 </div>

@@ -6,7 +6,16 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use App\Models\Role;
 
+/**
+ * @property int $id
+ * @property string $name
+ * @property string $email
+ * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\StudentProgress[] $studentProgress
+ * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\LearningPath[] $learningPaths
+ * @property-read \Illuminate\Database\Eloquent\Collection|\App\Models\RiskAlert[] $riskAlerts
+ */
 class User extends Authenticatable
 {
     use HasFactory, Notifiable;
@@ -52,6 +61,19 @@ class User extends Authenticatable
         'last_activity' => 'datetime',
     ];
 
+    /**
+     * The relations to eager load on every query.
+     *
+     * @var array
+     */
+    protected $with = ['role'];
+
+    /**
+     * The accessors to append to the model's array form.
+     *
+     * @var array
+     */
+    
     // RELACIONES
 
     /**
@@ -102,6 +124,13 @@ class User extends Authenticatable
         return $this->hasMany(DiagnosticResponse::class);
     }
 
+    // ACCESSORS
+
+    /**
+     * Obtener el nombre del rol para serialización
+     */
+
+
     // MÉTODOS DE VERIFICACIÓN DE ROLES
 
     /**
@@ -129,14 +158,6 @@ class User extends Authenticatable
     }
 
     // MÉTODOS AUXILIARES
-
-    /**
-     * Obtener el nombre del rol
-     */
-    public function getRoleName(): string
-    {
-        return $this->role ? $this->role->name : 'Sin rol';
-    }
 
     /**
      * Verificar si el usuario está activo

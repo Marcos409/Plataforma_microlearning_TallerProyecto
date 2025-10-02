@@ -13,10 +13,10 @@
                     <span class="badge bg-warning text-dark ms-2">{{ $users->total() }}</span>
                 </h1>
                 <div>
-                    <a href="{{ route('users.create') }}" class="btn btn-success me-2">
+                    <a href="{{ route('admin.users.create') }}" class="btn btn-success me-2">
                         <i class="fas fa-plus me-1"></i>Nuevo Usuario
                     </a>
-                    <a href="{{ route('users.index') }}" class="btn btn-secondary">
+                    <a href="{{ route('admin.users.index') }}" class="btn btn-secondary">
                         <i class="fas fa-arrow-left me-1"></i>Todos los Usuarios
                     </a>
                 </div>
@@ -119,12 +119,12 @@
                                             </td>
                                             <td>
                                                 <div class="btn-group" role="group">
-                                                    <a href="{{ route('users.show', $user) }}" 
+                                                    <a href="{{ route('admin.users.show', $user) }}" 
                                                        class="btn btn-sm btn-outline-info" 
                                                        title="Ver detalles">
                                                         <i class="fas fa-eye"></i>
                                                     </a>
-                                                    <a href="{{ route('users.edit', $user) }}" 
+                                                    <a href="{{ route('admin.users.edit', $user) }}" 
                                                        class="btn btn-sm btn-outline-primary" 
                                                        title="Editar usuario">
                                                         <i class="fas fa-edit"></i>
@@ -159,7 +159,7 @@
                         <h6 class="mb-0"><i class="fas fa-users-cog me-1"></i>Asignación Masiva de Roles</h6>
                     </div>
                     <div class="card-body">
-                        <form method="POST" action="{{ route('users.bulk-assign-role') }}" id="bulkForm">
+                        <form method="POST" action="{{ route('admin.users.bulk-assign-role') }}" id="bulkForm">
                             @csrf
                             <div class="row align-items-end">
                                 <div class="col-md-4">

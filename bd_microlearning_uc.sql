@@ -26,7 +26,7 @@ CREATE TABLE users (
     PRIMARY KEY (`id`),
     KEY `users_role_id_index` (`role_id`)
 );
-
+ 
 -- Actualizar todas las contraseñas a "12345678" (8 caracteres)
 -- Hash generado por Laravel para la contraseña "12345678"
 -- Insertar usuarios con contraseña "12345678" (8 caracteres)
@@ -336,8 +336,10 @@ CREATE TABLE diagnostic_results (
     KEY `dr_diagnostic_index` (`diagnostic_id`)
 );
 
-SELECT id, name, email, role_id, active FROM users WHERE email = 'ana.perez@uc.cl';
-
+SELECT id, name, email, role_id, active FROM users WHERE email = 'fabiola@uc.cl';
+SELECT id, name FROM roles ORDER BY id;
+SELECT * FROM users;
+SELECT * FROM content_library;
 -- --------------------------------------------------------
 -- ÍNDICES ADICIONALES PARA OPTIMIZACIÓN
 -- --------------------------------------------------------
@@ -363,6 +365,7 @@ SELECT
 FROM roles r
 LEFT JOIN users u ON r.id = u.role_id
 GROUP BY r.id, r.name;
+SELECT * FROM user_stats_by_role;
 
 -- Vista para progreso general de estudiantes
 CREATE VIEW student_progress_summary AS
@@ -380,3 +383,5 @@ FROM users u
 LEFT JOIN student_progress sp ON u.id = sp.user_id
 WHERE u.role_id = 3 AND u.active = 1
 GROUP BY u.id, u.name, u.email, u.career, u.semester;
+
+SELECT * FROM student_progress_summary;

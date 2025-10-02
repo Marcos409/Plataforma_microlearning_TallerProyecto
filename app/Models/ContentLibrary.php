@@ -12,9 +12,13 @@ class ContentLibrary extends Model
     protected $table = 'content_library';
 
     protected $fillable = [
-        'title', 'description', 'type', 'subject_area', 'topic', 
-        'difficulty_level', 'file_path', 'external_url', 
-        'estimated_duration', 'tags', 'active'
+        'title',
+        'subject_area',
+        'type',
+        'difficulty_level',
+        'description',
+        'content_url',
+        'active'
     ];
 
     protected $casts = [

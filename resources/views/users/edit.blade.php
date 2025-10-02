@@ -13,10 +13,10 @@
                     <small class="text-muted">{{ $user->name }}</small>
                 </h1>
                 <div>
-                    <a href="{{ route('users.show', $user) }}" class="btn btn-info me-2">
+                    <a href="{{ route('admin.users.show', $user) }}" class="btn btn-info me-2">
                         <i class="fas fa-eye me-1"></i>Ver
                     </a>
-                    <a href="{{ route('users.index') }}" class="btn btn-secondary">
+                    <a href="{{ route('admin.users.index') }}" class="btn btn-secondary">
                         <i class="fas fa-arrow-left me-1"></i>Volver
                     </a>
                 </div>
@@ -50,7 +50,7 @@
             <!-- Formulario -->
             <div class="card">
                 <div class="card-body">
-                    <form method="POST" action="{{ route('users.update', $user) }}">
+                    <form method="POST" action="{{ route('admin.users.update', $user) }}">
                         @csrf
                         @method('PUT')
 
@@ -153,7 +153,7 @@
 
                         <!-- Botones -->
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                            <a href="{{ route('users.index') }}" class="btn btn-outline-secondary me-md-2">
+                            <a href="{{ route('admin.users.index') }}" class="btn btn-outline-secondary me-md-2">
                                 <i class="fas fa-times me-1"></i>Cancelar
                             </a>
                             <button type="submit" class="btn btn-primary">
@@ -171,7 +171,7 @@
                 </div>
                 <div class="card-body">
                     <p class="text-muted mb-3">Estas acciones son permanentes y no se pueden deshacer.</p>
-                    <form method="POST" action="{{ route('users.destroy', $user) }}" class="d-inline">
+                    <form method="POST" action="{{ route('admin.users.destroy', $user) }}" class="d-inline">
                         @csrf
                         @method('DELETE')
                         <button type="submit" 
