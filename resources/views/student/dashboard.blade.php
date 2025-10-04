@@ -10,7 +10,7 @@
                     <h5 class="mb-0">
                         <i class="fas fa-user-shield me-2"></i>Panel de Estudiante
                     </h5>
-                    <p class="text-muted">
+                    <p class="text-muted mb-0">
                         Bienvenido, {{ Auth::user()->name }}
                         @if(Auth::user()->role)
                             - <span class="badge bg-info">{{ Auth::user()->role->name }}</span>
@@ -18,34 +18,29 @@
                     </p>
                 </div>
                 
-        
-                    <div class="col-md-4">
-                        <div class="card">
-                            <div class="card-body">
-                                <h5 class="card-title">Tu Información</h5>
-                                <p><strong>Nombre:</strong> {{ Auth::user()->name }}</p>
-                                <p><strong>Email:</strong> {{ Auth::user()->email }}</p>
-                                @if(Auth::user()->role)
-                                    <p><strong>Rol:</strong> {{ Auth::user()->role->name }}</p>
-                                @endif
-                                @if(Auth::user()->student_code)
-                                    <p><strong>Código:</strong> {{ Auth::user()->student_code }}</p>
-                                @endif
-                                @if(Auth::user()->career)
-                                    <p><strong>Carrera:</strong> {{ Auth::user()->career }}</p>
-                                @endif
-                            </div>
-                        </div>
+                <div class="card-body">
+                    <h5 class="card-title">Tu Información</h5>
+                    <p><strong>Nombre:</strong> {{ Auth::user()->name }}</p>
+                    <p><strong>Email:</strong> {{ Auth::user()->email }}</p>
+                    @if(Auth::user()->role)
+                        <p><strong>Rol:</strong> {{ Auth::user()->role->name }}</p>
+                    @endif
+                    @if(Auth::user()->student_code)
+                        <p><strong>Código:</strong> {{ Auth::user()->student_code }}</p>
+                    @endif
+                    @if(Auth::user()->career)
+                        <p><strong>Carrera:</strong> {{ Auth::user()->career }}</p>
+                    @endif
+                </div>
                 
-                        <div class="list-group list-group-flush">
-                            <a href="{{ route('admin.settings.index') }}" class="list-group-item list-group-item-action">
-                                <i class="fas fa-cog me-2"></i>Configuración
-                            </a>
-                        </div>
-                </div>  
+                <div class="list-group list-group-flush">
+                    <a href="{{ route('admin.settings.index') }}" class="list-group-item list-group-item-action">
+                        <i class="fas fa-cog me-2"></i>Configuración
+                    </a>
+                </div>
+            </div>
         </div>
-        </div>
-    
+    </div>
 </div>
 
 <!-- Alertas de Riesgo -->
