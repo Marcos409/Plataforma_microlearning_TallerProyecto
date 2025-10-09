@@ -152,6 +152,7 @@ INSERT INTO migrations (`migration`, `batch`) VALUES
 ('0001_01_01_000001_create_cache_table', 1),
 ('0001_01_01_000002_create_jobs_table', 1);
 
+
 -- --------------------------------------------------------
 -- TABLAS ESPECÍFICAS DEL SISTEMA MICROLEARNING
 -- --------------------------------------------------------
@@ -277,7 +278,10 @@ CREATE TABLE diagnostics (
     PRIMARY KEY (`id`),
     KEY `diagnostics_subject_index` (`subject_area`)
 );
-
+INSERT INTO diagnostics (title, description, subject_area, difficulty_level, time_limit_minutes, passing_score, active, created_at, updated_at) VALUES
+('Diagnóstico de Matemáticas Básicas', 'Evaluación de conocimientos fundamentales de aritmética y álgebra', 'Matemáticas', 'Básico', 30, 70.00, 1, NOW(), NOW()),
+('Diagnóstico de Álgebra Intermedia', 'Ecuaciones, funciones y sistemas lineales', 'Matemáticas', 'Intermedio', 45, 75.00, 1, NOW(), NOW()),
+('Diagnóstico de Física General', 'Cinemática, dinámica y leyes de Newton', 'Física', 'Básico', 40, 70.00, 1, NOW(), NOW());
 -- 17. TABLA: diagnostic_questions (Preguntas de diagnósticos)
 CREATE TABLE diagnostic_questions (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -335,6 +339,13 @@ CREATE TABLE diagnostic_results (
     KEY `dr_user_index` (`user_id`),
     KEY `dr_diagnostic_index` (`diagnostic_id`)
 );
+
+
+
+
+
+
+
 
 SELECT id, name, email, role_id, active FROM users WHERE email = 'fabiola@uc.cl';
 SELECT id, name FROM roles ORDER BY id;

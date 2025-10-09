@@ -9,7 +9,27 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        return view('admin.dashboard');
+        $riskAlerts = collect([]);
+    $mlAlerts = null;
+    $mlAnalysis = null;
+    $mlRecommendations = null;
+    $overallProgress = 0;
+    $learningPaths = collect([]);
+    $recommendations = collect([]);
+    $subjectProgress = collect([]);
+    $recentActivity = collect([]);
+    
+    return view('admin.dashboard', compact(
+        'riskAlerts',
+        'mlAlerts',
+        'mlAnalysis',
+        'mlRecommendations',
+        'overallProgress',
+        'learningPaths',
+        'recommendations',
+        'subjectProgress',
+        'recentActivity'
+    ));
     }
 
     public function reports()

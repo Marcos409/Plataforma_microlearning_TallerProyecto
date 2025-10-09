@@ -10,8 +10,13 @@ class DiagnosticResponse extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id', 'diagnostic_id', 'question_id', 'selected_answer', 
-        'is_correct', 'time_spent'
+        'user_id',
+        'diagnostic_id',
+        'question_id',
+        'user_answer',        // Cambiado de 'selected_answer'
+        'is_correct',
+        'points_earned',      // Agregado
+        'time_spent_seconds'  // Cambiado de 'time_spent'
     ];
 
     protected $casts = [

@@ -17,6 +17,7 @@ use App\Http\Controllers\Teacher\DashboardController as TeacherDashboardControll
 use App\Http\Controllers\Teacher\StudentProgressController as TeacherStudentController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\AI\PredictionController;
+use App\Http\Controllers\Admin\MLAnalysisController;
 
 Auth::routes();
 
@@ -84,6 +85,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
         Route::patch('users/{user}/update-role', [AdminUserController::class, 'updateRole'])->name('users.update-role');
         Route::patch('users/{user}/assign-role', [AdminUserController::class, 'assignRole'])->name('users.assign-role');
+        // Dentro del grupo Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {  
+    Route::get('/ml/resultados', [App\Http\Controllers\Admin\MLAnalysisController::class, 'showResults'])->name('ml.results');
 
         // Gestión de estudiantes
         Route::resource('students', AdminStudentController::class);
@@ -181,4 +184,14 @@ Route::prefix('settings')->name('settings.')->group(function () {
         Route::post('/generate-recommendations', [PredictionController::class, 'generateRecommendations'])->name('generate-recommendations');
         Route::post('/update-learning-path', [PredictionController::class, 'updateLearningPath'])->name('update-learning-path');
     });
+
+    Route::middleware(['auth', 'role:admin'])->group(function () {
+        Route::post('/admin/ml/analyze/{user}', [MLAnalysisController::class, 'analyzeStudent'])
+            ->name('admin.ml.analyze');
+        
+        Route::post('/admin/ml/analyze-all', [MLAnalysisController::class, 'analyzeAll'])
+            ->name('admin.ml.analyzeAll');
+    });
+
+    
 });

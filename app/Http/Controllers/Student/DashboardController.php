@@ -8,6 +8,7 @@ use App\Models\LearningPath;
 use App\Models\Recommendation;
 use App\Models\RiskAlert;
 use App\Models\StudentProgress;
+use App\Models\MLAnalysis;
 
 class DashboardController extends Controller
 {
@@ -54,6 +55,35 @@ class DashboardController extends Controller
             ->pluck('contents')
             ->flatten();
 
+        // ========== NUEVO: Análisis ML ==========
+        $mlAnalysis = MLAnalysis::where('user_id', $user->id)
+            ->latest()
+            ->first();
+        
+        // Si hay análisis ML, usarlo para crear alertas y recomendaciones visuales
+        $mlRecommendations = null;
+        $mlAlerts = null;
+        
+        if ($mlAnalysis) {
+            // Preparar recomendaciones del ML
+            $mlRecommendations = [
+                'nivel' => $mlAnalysis->diagnostico,
+                'ruta' => $mlAnalysis->ruta_aprendizaje,
+                'pasos' => $mlAnalysis->recomendaciones['ruta_pasos'] ?? [],
+                'contenido' => $mlAnalysis->recomendaciones['contenido_recomendado'] ?? [],
+                'metricas' => $mlAnalysis->metricas,
+            ];
+            
+            // Preparar alertas del ML
+            if ($mlAnalysis->nivel_riesgo !== 'bajo') {
+                $mlAlerts = [
+                    'nivel' => $mlAnalysis->nivel_riesgo,
+                    'probabilidad' => $mlAnalysis->metricas['probabilidad_riesgo'] ?? 0,
+                    'acciones' => $mlAnalysis->recomendaciones['actividades_refuerzo'] ?? [],
+                ];
+            }
+        }
+
         return view('student.dashboard', compact(
             'user',
             'overallProgress', 
@@ -61,7 +91,10 @@ class DashboardController extends Controller
             'recommendations', 
             'riskAlerts', 
             'subjectProgress', 
-            'recentActivity'
+            'recentActivity',
+            'mlAnalysis',
+            'mlRecommendations',
+            'mlAlerts'
         ));
     }
 }
