@@ -3,44 +3,38 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
 use App\Models\Role;
+// ELIMINADO: use App\Models\User; // ❌ Ya no se usa para las consultas
+use App\Contracts\UserDAOInterface; // ✅ NUEVO: Importamos el Contrato DAO
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-
+use App\Models\User; // Mantenemos solo para Route Model Binding y tipos
 
 class AdminUserController extends Controller
 {
+    protected UserDAOInterface $userDAO; // ✅ Almacena la instancia de EloquentUserDAO
+
+    /**
+     * Inyección de dependencia del UserDAOInterface.
+     */
+    public function __construct(UserDAOInterface $userDAO)
+    {
+        $this->userDAO = $userDAO;
+    }
+
     /**
      * Display a listing of all users
      */
     public function index(Request $request)
     {
-        $query = User::with('role');
+        // 1. Delegamos toda la lógica de filtrado y paginación al DAO.
+        $filters = $request->only(['search', 'role', 'active']);
+        
+        $users = $this->userDAO->getUsersWithFilters($filters, 15);
 
-        // Filtros
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('student_code', 'like', "%{$search}%");
-            });
-        }
-
-        if ($request->filled('role')) {
-            $query->where('role_id', $request->role);
-        }
-
-        if ($request->filled('active')) {
-            $query->where('active', $request->active);
-        }
-
-        $users = $query->orderBy('name')->paginate(15);
         $roles = Role::all();
 
         return view('admin.users.index', compact('users', 'roles'));
-        
     }
 
     /**
@@ -57,7 +51,7 @@ class AdminUserController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'role_id' => 'required|exists:roles,id',
@@ -68,16 +62,17 @@ class AdminUserController extends Controller
             'password' => 'required|string|min:8|confirmed',
             'active' => 'boolean',
         ]);
-
-        User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'role_id' => $request->role_id,
-            'student_code' => $request->student_code,
-            'career' => $request->career,
-            'semester' => $request->semester,
-            'phone' => $request->phone,
+        
+        // 2. Usamos el DAO para crear el usuario. La lógica de persistencia está encapsulada.
+        $this->userDAO->create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => Hash::make($validated['password']), // El hash se hace antes de pasar al DAO
+            'role_id' => $validated['role_id'],
+            'student_code' => $validated['student_code'] ?? null,
+            'career' => $validated['career'] ?? null,
+            'semester' => $validated['semester'] ?? null,
+            'phone' => $validated['phone'] ?? null,
             'active' => $request->boolean('active', true),
         ]);
 
@@ -86,16 +81,17 @@ class AdminUserController extends Controller
     }
 
     /**
-     * Display the specified user
+     * Display the specified user (Utiliza Route Model Binding de Laravel)
      */
     public function show(User $user)
     {
+        // Se mantiene la carga de relaciones en la instancia obtenida por el Route Model Binding.
         $user->load(['role', 'studentProgress', 'learningPaths', 'recommendations']);
         return view('admin.users.show', compact('user'));
     }
 
     /**
-     * Show the form for editing the specified user
+     * Show the form for editing the specified user (Utiliza Route Model Binding de Laravel)
      */
     public function edit(User $user)
     {
@@ -104,57 +100,12 @@ class AdminUserController extends Controller
     }
 
     /**
-     * Update the specified user
+     * Update the specified user (Utiliza Route Model Binding de Laravel)
      */
-
-     public function update(Request $request, User $user)
-     {
-         $rules = [
-             'name' => 'required|string|max:255',
-             'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
-             'role_id' => 'required|exists:roles,id',
-             'student_code' => 'nullable|string|max:20|unique:users,student_code,' . $user->id,
-             'career' => 'nullable|string|max:255',
-             'semester' => 'nullable|integer|min:1|max:12',
-             'phone' => 'nullable|string|max:15',
-             'active' => 'boolean',
-         ];
-     
-         // Solo validar contraseña si se proporciona
-         if ($request->filled('password')) {
-             $rules['password'] = 'string|min:8|confirmed';
-         }
-     
-         $validated = $request->validate($rules);
-     
-         // Preparar datos para actualizar
-         $dataToUpdate = [
-             'name' => $validated['name'],
-             'email' => $validated['email'],
-             'role_id' => $validated['role_id'],
-             'student_code' => $validated['student_code'] ?? null,
-             'career' => $validated['career'] ?? null,
-             'semester' => $validated['semester'] ?? null,
-             'phone' => $validated['phone'] ?? null,
-             'active' => $request->boolean('active', true),
-         ];
-     
-         // Si se proporciona contraseña, hashearla
-         if ($request->filled('password')) {
-             $dataToUpdate['password'] = Hash::make($request->password);
-         }
-     
-         $user->update($dataToUpdate);
-     
-         return redirect()->route('admin.users.index')
-             ->with('success', 'Usuario actualizado exitosamente.');
-     }
-
-
-
-    /**public function update(Request $request, User $user)
+    public function update(Request $request, User $user)
     {
-        $request->validate([
+        $rules = [
+            // ... (Reglas de validación, no se modifican)
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
             'role_id' => 'required|exists:roles,id',
@@ -163,30 +114,44 @@ class AdminUserController extends Controller
             'semester' => 'nullable|integer|min:1|max:12',
             'phone' => 'nullable|string|max:15',
             'active' => 'boolean',
+        ];
+      
+        if ($request->filled('password')) {
+            $rules['password'] = 'string|min:8|confirmed';
+        }
+      
+        $validated = $request->validate($rules);
+      
+        // Preparar datos para actualizar
+        $dataToUpdate = array_merge($validated, [
+            'active' => $request->boolean('active', true),
+            'password' => $request->filled('password') ? Hash::make($request->password) : $user->password,
+            'student_code' => $validated['student_code'] ?? null,
+            'career' => $validated['career'] ?? null,
+            'semester' => $validated['semester'] ?? null,
+            'phone' => $validated['phone'] ?? null,
         ]);
-
-        $user->update($request->only([
-            'name', 'email', 'role_id', 'student_code', 'career', 
-            'semester', 'phone', 'active'
-        ]));
+        unset($dataToUpdate['password_confirmation']);
+      
+        // 3. Utilizamos el DAO para la actualización. Pasamos el ID del usuario.
+        $this->userDAO->update($user->id, $dataToUpdate);
 
         return redirect()->route('admin.users.index')
             ->with('success', 'Usuario actualizado exitosamente.');
-    }*/
-
+    }
 
     /**
      * Remove the specified user from storage
      */
     public function destroy(User $user)
     {
-        // No permitir eliminar al admin principal
         if ($user->id === 1) {
             return redirect()->route('admin.users.index')
                 ->with('error', 'No se puede eliminar el administrador principal.');
         }
 
-        $user->delete();
+        // 4. Usamos el DAO para eliminar.
+        $this->userDAO->delete($user->id);
 
         return redirect()->route('admin.users.index')
             ->with('success', 'Usuario eliminado exitosamente.');
@@ -197,12 +162,13 @@ class AdminUserController extends Controller
      */
     public function updateRole(Request $request, User $user)
     {
-        $request->validate([
-            'role_id' => 'required|exists:roles,id'
-        ]);
-
-        $user->update(['role_id' => $request->role_id]);
-
+        $request->validate(['role_id' => 'required|exists:roles,id']);
+        
+        // 5. Usamos el DAO para la actualización simple del rol
+        $this->userDAO->update($user->id, ['role_id' => $request->role_id]);
+        
+        $user->refresh(); // Se refresca el modelo para obtener la relación 'role' actualizada
+        
         return response()->json([
             'success' => true,
             'message' => 'Rol actualizado exitosamente',
@@ -215,9 +181,8 @@ class AdminUserController extends Controller
      */
     public function pending()
     {
-        $users = User::whereNull('role_id')->orWhere('role_id', 0)
-                    ->orderBy('created_at', 'desc')
-                    ->paginate(15); // Agregué paginación para consistencia
+        // 6. Delegamos la consulta de usuarios pendientes al DAO
+        $users = $this->userDAO->getUsersPendingRole();
         $roles = Role::all();
         
         return view('admin.users.pending', compact('users', 'roles'));
@@ -226,15 +191,11 @@ class AdminUserController extends Controller
 
     public function assignRole(Request $request, User $user)
     {
-        $request->validate([
-            'role_id' => 'required|exists:roles,id'
-        ]);
+        $request->validate(['role_id' => 'required|exists:roles,id']);
     
-        // Debug: verifica los datos
+        // 7. Usamos el DAO para asignar el rol
+        $this->userDAO->update($user->id, ['role_id' => $request->role_id]);
     
-        $user->update(['role_id' => $request->role_id]);
-    
-        // Verifica que se guardó
         $user->refresh();
     
         return redirect()->route('admin.users.pending')
@@ -242,104 +203,78 @@ class AdminUserController extends Controller
     }
 
 
-
-
-
     /**
      * Assign roles to multiple users
      */
     public function bulkAssignRole(Request $request)
-{
-    $request->validate([
-        'user_ids' => 'required|array',
-        'user_ids.*' => 'exists:users,id',
-        'role_id' => 'required|exists:roles,id'
-    ]);
+    {
+        $validated = $request->validate([
+            'user_ids' => 'required|array',
+            'user_ids.*' => 'exists:users,id',
+            'role_id' => 'required|exists:roles,id'
+        ]);
 
-    User::whereIn('id', $request->user_ids)
-        ->update(['role_id' => $request->role_id]);
-
-    $count = count($request->user_ids);
+        // 8. Delegamos la actualización masiva al DAO
+        $count = $this->userDAO->bulkUpdateRoles($validated['user_ids'], $validated['role_id']);
     
-    return redirect()->route('admin.users.pending')
-        ->with('success', "Roles asignados exitosamente a {$count} usuarios.");
-}
+        return redirect()->route('admin.users.pending')
+            ->with('success', "Roles asignados exitosamente a {$count} usuarios.");
+    }
 
 
     /**
      * Export users to CSV
      */
     public function export(Request $request)
-{
-    $query = User::with('role');
-
-    // Filtros
-    if ($request->filled('role')) {
-        $query->where('role_id', $request->role);
-    } elseif ($request->has('students_only')) {
-        $query->where('role_id', 3);
-    }
-
-    if ($request->filled('search')) {
-        $search = $request->search;
-        $query->where(function($q) use ($search) {
-            $q->where('name', 'like', "%{$search}%")
-              ->orWhere('email', 'like', "%{$search}%")
-              ->orWhere('student_code', 'like', "%{$search}%");
-        });
-    }
-
-    $users = $query->get();
-    
-    $filename = 'usuarios_' . date('Y-m-d_His') . '.csv';
-
-    $headers = [
-        'Content-Type' => 'text/csv; charset=UTF-8',
-        'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-        'Pragma' => 'no-cache',
-        'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
-        'Expires' => '0'
-    ];
-
-    $callback = function() use ($users) {
-        $file = fopen('php://output', 'w');
-        
-        // BOM para UTF-8 (necesario para Excel)
-        fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
-        
-        // Encabezados - usar punto y coma como delimitador
-        fputcsv($file, [
-            'ID',
-            'Nombre',
-            'Email',
-            'Rol',
-            'Código',
-            'Carrera',
-            'Semestre',
-            'Teléfono',
-            'Estado',
-            'Fecha Registro'
-        ], ';'); // ← Punto y coma como delimitador
-
-        foreach ($users as $user) {
-            fputcsv($file, [
-                $user->id,
-                $user->name,
-                $user->email,
-                $user->role->name ?? 'Sin rol',
-                $user->student_code ?? '',
-                $user->career ?? '',
-                $user->semester ?? '',
-                $user->phone ?? '',
-                $user->active ? 'Activo' : 'Inactivo',
-                $user->created_at->format('d/m/Y H:i')
-            ], ';'); // ← Punto y coma como delimitador
+    {
+        // 9. Delegamos la consulta de exportación al DAO
+        $filters = $request->only(['search', 'role']);
+        if ($request->has('students_only')) {
+            $filters['role'] = 3; // Asumimos role_id 3 es 'estudiante'
         }
+        
+        $users = $this->userDAO->getUsersForExport($filters);
+        
+        // ... (El resto de la lógica de exportación, manejo de CSV y headers, se mantiene)
+        $filename = 'usuarios_' . date('Y-m-d_His') . '.csv';
 
-        fclose($file);
-    };
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Pragma' => 'no-cache',
+            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires' => '0'
+        ];
 
-    return response()->stream($callback, 200, $headers);
-}
-    
+        $callback = function() use ($users) {
+            $file = fopen('php://output', 'w');
+            
+            // BOM para UTF-8
+            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+            
+            // Encabezados
+            fputcsv($file, [
+                'ID', 'Nombre', 'Email', 'Rol', 'Código', 'Carrera', 'Semestre', 'Teléfono', 'Estado', 'Fecha Registro'
+            ], ';');
+
+            foreach ($users as $user) {
+                fputcsv($file, [
+                    $user->id,
+                    $user->name,
+                    $user->email,
+                    $user->role->name ?? 'Sin rol',
+                    $user->student_code ?? '',
+                    $user->career ?? '',
+                    $user->semester ?? '',
+                    $user->phone ?? '',
+                    $user->active ? 'Activo' : 'Inactivo',
+                    $user->created_at->format('d/m/Y H:i')
+                ], ';');
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
 }

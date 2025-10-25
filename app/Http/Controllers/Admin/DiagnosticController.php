@@ -2,16 +2,26 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Contracts\DiagnosticDAOInterface; // 👈 Importamos la Interfaz
 use App\Http\Controllers\Controller;
-use App\Models\Diagnostic;
-use App\Models\DiagnosticQuestion;
+use App\Models\Diagnostic; // Se mantiene para Type Hinting de rutas
+use App\Models\DiagnosticQuestion; // Se mantiene para Type Hinting de rutas
 use Illuminate\Http\Request;
 
 class DiagnosticController extends Controller
 {
+    protected DiagnosticDAOInterface $diagnosticDAO; // 👈 Usamos la Interfaz
+
+    // Inyección de dependencia
+    public function __construct(DiagnosticDAOInterface $diagnosticDAO)
+    {
+        $this->diagnosticDAO = $diagnosticDAO;
+    }
+
     public function index()
     {
-        $diagnostics = Diagnostic::withCount('questions')->orderBy('created_at', 'desc')->get();
+        // 1. Usar DAO para obtener todos los diagnósticos con conteo de preguntas
+        $diagnostics = $this->diagnosticDAO->getAllWithQuestionCount();
         
         return view('admin.diagnostics.index', compact('diagnostics'));
     }
@@ -23,14 +33,15 @@ class DiagnosticController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'subject_area' => 'required|string|max:255',
             'passing_score' => 'required|integer|min:1|max:100',
         ]);
 
-        $diagnostic = Diagnostic::create($request->all());
+        // 2. Usar DAO para crear el diagnóstico
+        $diagnostic = $this->diagnosticDAO->createDiagnostic($validated);
 
         return redirect()->route('admin.diagnostics.questions.index', $diagnostic)
             ->with('success', 'Diagnóstico creado. Ahora agrega las preguntas.');
@@ -38,7 +49,8 @@ class DiagnosticController extends Controller
 
     public function show(Diagnostic $diagnostic)
     {
-        $diagnostic->load('questions');
+        // Nota: En la vista se debe cargar la relación 'questions', si no lo hace,
+        // se podría usar $this->diagnosticDAO->findWithQuestions($diagnostic->id);
         
         return view('admin.diagnostics.show', compact('diagnostic'));
     }
@@ -50,15 +62,18 @@ class DiagnosticController extends Controller
 
     public function update(Request $request, Diagnostic $diagnostic)
     {
-        $request->validate([
+        $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'subject_area' => 'required|string|max:255',
             'passing_score' => 'required|integer|min:1|max:100',
-            'active' => 'boolean',
+            'active' => 'nullable|boolean',
         ]);
-
-        $diagnostic->update($request->all());
+        
+        $validated['active'] = $request->has('active');
+        
+        // 3. Usar DAO para actualizar el diagnóstico
+        $this->diagnosticDAO->updateDiagnostic($diagnostic, $validated);
 
         return redirect()->route('admin.diagnostics.index')
             ->with('success', 'Diagnóstico actualizado exitosamente.');
@@ -66,16 +81,19 @@ class DiagnosticController extends Controller
 
     public function destroy(Diagnostic $diagnostic)
     {
-        $diagnostic->delete();
+        // 4. Usar DAO para eliminar el diagnóstico
+        $this->diagnosticDAO->deleteDiagnostic($diagnostic);
 
         return redirect()->route('admin.diagnostics.index')
             ->with('success', 'Diagnóstico eliminado exitosamente.');
     }
 
-    // Gestión de preguntas
+    // --- Gestión de preguntas (Questions) ---
+
     public function questionsIndex(Diagnostic $diagnostic)
     {
-        $questions = $diagnostic->questions()->orderBy('created_at')->get();
+        // 5. Usar DAO para obtener las preguntas del diagnóstico
+        $questions = $this->diagnosticDAO->getQuestionsForDiagnostic($diagnostic);
         
         return view('admin.diagnostics.questions.index', compact('diagnostic', 'questions'));
     }
@@ -87,7 +105,7 @@ class DiagnosticController extends Controller
 
     public function questionsStore(Request $request, Diagnostic $diagnostic)
     {
-        $request->validate([
+        $validated = $request->validate([
             'question' => 'required|string',
             'options' => 'required|array|min:2|max:5',
             'options.*' => 'required|string',
@@ -97,20 +115,21 @@ class DiagnosticController extends Controller
         ]);
 
         // Validar que la respuesta correcta esté dentro del rango de opciones
-        if ($request->correct_answer >= count($request->options)) {
+        if ($validated['correct_answer'] >= count($validated['options'])) {
             return back()->withErrors(['correct_answer' => 'La respuesta correcta debe estar dentro del rango de opciones.']);
         }
 
-        DiagnosticQuestion::create([
-            'diagnostic_id' => $diagnostic->id,
-            'question' => $request->question,
-            'options' => array_values($request->options), // Reindexar array
-            'correct_answer' => $request->correct_answer,
-            'difficulty_level' => $request->difficulty_level,
-            'topic' => $request->topic,
+        // 6. Usar DAO para crear la pregunta
+        $this->diagnosticDAO->createQuestion($diagnostic, [
+            'question' => $validated['question'],
+            'options' => array_values($validated['options']), // Reindexar
+            'correct_answer' => $validated['correct_answer'],
+            'difficulty_level' => $validated['difficulty_level'],
+            'topic' => $validated['topic'],
         ]);
 
-        $diagnostic->updateTotalQuestions();
+        // 7. Usar DAO para actualizar el conteo total
+        $this->diagnosticDAO->syncTotalQuestions($diagnostic);
 
         return redirect()->route('admin.diagnostics.questions.index', $diagnostic)
             ->with('success', 'Pregunta agregada exitosamente.');
@@ -123,7 +142,7 @@ class DiagnosticController extends Controller
 
     public function questionsUpdate(Request $request, Diagnostic $diagnostic, DiagnosticQuestion $question)
     {
-        $request->validate([
+        $validated = $request->validate([
             'question' => 'required|string',
             'options' => 'required|array|min:2|max:5',
             'options.*' => 'required|string',
@@ -132,16 +151,17 @@ class DiagnosticController extends Controller
             'topic' => 'required|string|max:255',
         ]);
 
-        if ($request->correct_answer >= count($request->options)) {
+        if ($validated['correct_answer'] >= count($validated['options'])) {
             return back()->withErrors(['correct_answer' => 'La respuesta correcta debe estar dentro del rango de opciones.']);
         }
 
-        $question->update([
-            'question' => $request->question,
-            'options' => array_values($request->options),
-            'correct_answer' => $request->correct_answer,
-            'difficulty_level' => $request->difficulty_level,
-            'topic' => $request->topic,
+        // 8. Usar DAO para actualizar la pregunta
+        $this->diagnosticDAO->updateQuestion($question, [
+            'question' => $validated['question'],
+            'options' => array_values($validated['options']),
+            'correct_answer' => $validated['correct_answer'],
+            'difficulty_level' => $validated['difficulty_level'],
+            'topic' => $validated['topic'],
         ]);
 
         return redirect()->route('admin.diagnostics.questions.index', $diagnostic)
@@ -150,8 +170,11 @@ class DiagnosticController extends Controller
 
     public function questionsDestroy(Diagnostic $diagnostic, DiagnosticQuestion $question)
     {
-        $question->delete();
-        $diagnostic->updateTotalQuestions();
+        // 9. Usar DAO para eliminar la pregunta
+        $this->diagnosticDAO->deleteQuestion($question);
+        
+        // 10. Usar DAO para actualizar el conteo total
+        $this->diagnosticDAO->syncTotalQuestions($diagnostic);
 
         return redirect()->route('admin.diagnostics.questions.index', $diagnostic)
             ->with('success', 'Pregunta eliminada exitosamente.');

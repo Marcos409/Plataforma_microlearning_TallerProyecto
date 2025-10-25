@@ -9,6 +9,9 @@ use Illuminate\Notifications\Notifiable;
 use App\Models\Role;
 
 /**
+ * User Model - Solo estructura y relaciones
+ * Todas las queries se hacen a través de UserDAO
+ * 
  * @property int $id
  * @property string $name
  * @property string $email
@@ -68,13 +71,8 @@ class User extends Authenticatable
      */
     protected $with = ['role'];
 
-    /**
-     * The accessors to append to the model's array form.
-     *
-     * @var array
-     */
-    
-    // RELACIONES
+    // ==================== RELACIONES ====================
+    // Las relaciones de Eloquent se mantienen porque definen la estructura
 
     /**
      * Relación con el modelo Role
@@ -124,14 +122,16 @@ class User extends Authenticatable
         return $this->hasMany(DiagnosticResponse::class);
     }
 
-    // ACCESSORS
-
     /**
-     * Obtener el nombre del rol para serialización
+     * Relación con los seguimientos agendados
      */
+    public function followUps()
+    {
+        return $this->hasMany(FollowUp::class);
+    }
 
-
-    // MÉTODOS DE VERIFICACIÓN DE ROLES
+    // ==================== MÉTODOS AUXILIARES SIMPLES ====================
+    // Solo métodos que NO hacen queries a la BD
 
     /**
      * Verificar si el usuario es administrador
@@ -157,8 +157,6 @@ class User extends Authenticatable
         return $this->role_id == 3;
     }
 
-    // MÉTODOS AUXILIARES
-
     /**
      * Verificar si el usuario está activo
      */
@@ -166,6 +164,9 @@ class User extends Authenticatable
     {
         return $this->active;
     }
+
+    // ==================== SCOPES ====================
+    // Los scopes se mantienen porque Eloquent los necesita para queries básicas
 
     /**
      * Scope para filtrar usuarios activos
@@ -209,92 +210,20 @@ class User extends Authenticatable
         return $query->where('role_id', 1);
     }
 
+    // ==================== NOTA IMPORTANTE ====================
     /**
-     * Obtener el progreso general del estudiante
+     * MÉTODOS ELIMINADOS - Ahora están en UserDAO:
+     * 
+     * - getOverallProgress() → UserDAO::getOverallProgress($userId)
+     * - getTotalTimeSpent() → UserDAO::getTotalTimeSpent($userId)
+     * - getCompletedActivitiesCount() → UserDAO::getCompletedActivitiesCount($userId)
+     * - hasActiveRiskAlerts() → UserDAO::hasActiveRiskAlerts($userId)
+     * - getActiveRiskAlerts() → UserDAO::getActiveRiskAlerts($userId)
+     * - getPendingRecommendationsCount() → UserDAO::getPendingRecommendationsCount($userId)
+     * - updateLastActivity() → UserDAO::updateLastActivity($userId)
+     * - isInactiveFor() → UserDAO::isInactiveFor($userId, $days)
+     * 
+     * USAR: app(UserDAOInterface::class)->metodo($userId)
+     * O inyectar UserDAOInterface en el constructor del Controller
      */
-    public function getOverallProgress(): float
-    {
-        if (!$this->isStudent()) {
-            return 0.0;
-        }
-
-        $progress = $this->studentProgress()->avg('progress_percentage');
-        return round($progress ?? 0, 2);
-    }
-
-    /**
-     * Obtener el tiempo total gastado en actividades
-     */
-    public function getTotalTimeSpent(): int
-    {
-        if (!$this->isStudent()) {
-            return 0;
-        }
-
-        return $this->studentProgress()->sum('total_time_spent') ?? 0;
-    }
-
-    /**
-     * Obtener el número de actividades completadas
-     */
-    public function getCompletedActivitiesCount(): int
-    {
-        if (!$this->isStudent()) {
-            return 0;
-        }
-
-        return $this->studentProgress()->sum('completed_activities') ?? 0;
-    }
-
-    /**
-     * Verificar si el estudiante tiene alertas de riesgo activas
-     */
-    public function hasActiveRiskAlerts(): bool
-    {
-        if (!$this->isStudent()) {
-            return false;
-        }
-
-        return $this->riskAlerts()->where('is_resolved', false)->exists();
-    }
-
-    /**
-     * Obtener alertas de riesgo activas
-     */
-    public function getActiveRiskAlerts()
-    {
-        return $this->riskAlerts()->where('is_resolved', false)->get();
-    }
-
-    /**
-     * Obtener el número de recomendaciones pendientes
-     */
-    public function getPendingRecommendationsCount(): int
-    {
-        if (!$this->isStudent()) {
-            return 0;
-        }
-
-        return $this->recommendations()->where('is_completed', false)->count();
-    }
-
-    /**
-     * Actualizar última actividad
-     */
-    public function updateLastActivity(): bool
-    {
-        return $this->update(['last_activity' => now()]);
-    }
-
-    /**
-     * Verificar si el usuario ha estado inactivo por más de X días
-     */
-    public function isInactiveFor(int $days): bool
-    {
-        if (!$this->last_activity) {
-            return true;
-        }
-
-        return $this->last_activity->diffInDays(now()) > $days;
-    }
 }

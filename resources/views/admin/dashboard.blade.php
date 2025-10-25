@@ -66,7 +66,7 @@
                     $adminCount = App\Models\User::whereHas('role', function($q) { $q->where('name', 'Administrador'); })->count();
                     $docenteCount = App\Models\User::whereHas('role', function($q) { $q->where('name', 'Docente'); })->count();
                     $estudianteCount = App\Models\User::whereHas('role', function($q) { $q->where('name', 'Estudiante'); })->count();
-                    $sinRolCount = App\Models\User::whereNull('role_id')->count();
+                    
                     
                     // Usuarios nuevos en los últimos 7 días
                     $newUsersWeek = App\Models\User::where('created_at', '>=', now()->subDays(7))->count();
@@ -85,7 +85,7 @@
                     $adminPercent = $totalUsers > 0 ? round(($adminCount / $totalUsers) * 100, 1) : 0;
                     $docentePercent = $totalUsers > 0 ? round(($docenteCount / $totalUsers) * 100, 1) : 0;
                     $estudiantePercent = $totalUsers > 0 ? round(($estudianteCount / $totalUsers) * 100, 1) : 0;
-                    $sinRolPercent = $totalUsers > 0 ? round(($sinRolCount / $totalUsers) * 100, 1) : 0;
+                    $sinRolPercent = $totalUsers > 0 ? round(($pendingUsersCount / $totalUsers) * 100, 1) : 0;
                 @endphp
 
                 <!-- Estadísticas -->
@@ -103,7 +103,7 @@
                         <div class="card bg-warning text-white">
                             <div class="card-body text-center">
                                 <i class="fas fa-clock fa-2x mb-2"></i>
-                                <h4>{{ $sinRolCount }}</h4>
+                                <h4>{{ $pendingUsersCount }}</h4>
                                 <p class="mb-0">Sin Rol Asignado</p>
                             </div>
                         </div>
@@ -148,8 +148,8 @@
                                         <div class="d-grid">
                                             <a href="{{ route('admin.users.pending') }}?filter=pending" class="btn btn-warning">
                                                 <i class="fas fa-clock me-2"></i>Usuarios Pendientes
-                                                @if($sinRolCount > 0)
-                                                    <span class="badge bg-dark ms-1">{{ $sinRolCount }}</span>
+                                                @if($pendingUsersCount > 0)
+                                                    <span class="badge bg-dark ms-1">{{ $pendingUsersCount }}</span>
                                                 @endif
                                             </a>
                                         </div>
@@ -210,17 +210,17 @@
                                             </li>
                                             <li class="mb-3">
                                                 <span class="badge" style="background-color: #ffc107; width: 15px; height: 15px; display: inline-block;"></span>
-                                                <strong>Pendientes:</strong> {{ $sinRolCount }} <small class="text-muted">({{ $sinRolPercent }}%)</small>
-                                                @if($sinRolCount > 0)
+                                                <strong>Pendientes:</strong> {{ $pendingUsersCount }} <small class="text-muted">({{ $sinRolPercent }}%)</small>
+                                                @if($pendingUsersCount > 0)
                                                     <i class="fas fa-exclamation-triangle text-warning ms-1"></i>
                                                 @endif
                                             </li>
                                         </ul>
                                         
-                                        @if($sinRolCount > 0)
+                                        @if($pendingUsersCount > 0)
                                             <div class="alert alert-warning py-2 px-3 mb-3" role="alert">
                                                 <i class="fas fa-exclamation-circle me-1"></i>
-                                                <small><strong>{{ $sinRolCount }}</strong> usuario(s) requiere(n) asignación de rol</small>
+                                                <small><strong>{{ $pendingUsersCount }}</strong> usuario(s) requiere(n) asignación de rol</small>
                                             </div>
                                         @endif
                                         
@@ -286,7 +286,7 @@
                             {{ $adminCount }},
                             {{ $docenteCount }},
                             {{ $estudianteCount }},
-                            {{ $sinRolCount }}
+                            {{ $pendingUsersCount}}
                         ],
                         backgroundColor: [
                             '#dc3545',

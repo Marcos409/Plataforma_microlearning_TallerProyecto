@@ -17,7 +17,7 @@ class ContentLibrary extends Model
         'type',
         'difficulty_level',
         'description',
-        'content_url',
+        'external_url',
         'active'
     ];
 

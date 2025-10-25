@@ -54,6 +54,7 @@
                                     <option value="1" {{ request('role') == '1' ? 'selected' : '' }}>Administrador</option>
                                     <option value="2" {{ request('role') == '2' ? 'selected' : '' }}>Docente</option>
                                     <option value="3" {{ request('role') == '3' ? 'selected' : '' }}>Estudiante</option>
+                                    <option value="4" {{ request('role') == '4' ? 'selected' : '' }}>Sin Rol</option>
                                 </select>
                             </div>
                             <div class="col-md-2">

@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\ContentController as AdminContentController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Teacher\DashboardController as TeacherDashboardController;
 use App\Http\Controllers\Teacher\StudentProgressController as TeacherStudentController;
+use App\Http\Controllers\Admin\FollowUpController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\AI\PredictionController;
 use App\Http\Controllers\Admin\MLAnalysisController;
@@ -144,6 +145,12 @@ Route::prefix('settings')->name('settings.')->group(function () {
             Route::get('/performance', [AdminDashboardController::class, 'performanceReports'])->name('performance');
             Route::get('/risk', [AdminDashboardController::class, 'riskReports'])->name('risk');
             Route::post('/generate', [AdminDashboardController::class, 'generateReport'])->name('generate');
+        
+            // Acciones para estudiantes en riesgo
+            Route::post('/send-email/{user}', [AdminDashboardController::class, 'sendEmail'])->name('send-email');
+            Route::post('/schedule-followup/{user}', [AdminDashboardController::class, 'scheduleFollowUp'])->name('schedule-followup');
+
+        
         });
         
         // Monitoreo del sistema
@@ -151,6 +158,7 @@ Route::prefix('settings')->name('settings.')->group(function () {
             Route::get('/', [AdminDashboardController::class, 'systemMonitoring'])->name('index');
             Route::get('/usage', [AdminDashboardController::class, 'usageStats'])->name('usage');
         });
+
     });
 
     // Rutas para Docentes

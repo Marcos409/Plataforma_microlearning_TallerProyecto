@@ -2,187 +2,169 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Contracts\ContentDAOInterface;
 use App\Http\Controllers\Controller;
-use App\Models\ContentLibrary;
 use Illuminate\Http\Request;
 
 class ContentController extends Controller
 {
+    protected ContentDAOInterface $contentDAO;
+
+    // Define el mapeo de dificultad de texto a entero (INT) para la base de datos
+    protected const DIFFICULTY_MAP = [
+        'Básico' => 1,
+        'Intermedio' => 2,
+        'Avanzado' => 3,
+    ];
+
     /**
-     * Display a listing of content.
+     * Inyección de dependencia del ContentDAOInterface.
+     */
+    public function __construct(ContentDAOInterface $contentDAO)
+    {
+        $this->contentDAO = $contentDAO;
+    }
+
+    /**
+     * Muestra la lista de contenidos con filtros y paginación.
      */
     public function index(Request $request)
     {
-        $query = ContentLibrary::query();
+        // 1. Obtener contenidos paginados con filtros desde el DAO
+        $contents = $this->contentDAO->getFilteredAndPaginated($request);
 
-        // Aplicar filtros si existen
-        if ($request->filled('subject')) {
-            $query->where('subject_area', $request->subject);
-        }
-
-        if ($request->filled('type')) {
-            $query->where('type', $request->type);
-        }
-
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
-            });
-        }
-
-        $contents = $query->orderBy('created_at', 'desc')->paginate(12);
-
-        // Si no hay datos en la BD, usar datos de ejemplo
-        if ($contents->isEmpty()) {
-            $contents = collect([
-                (object)['id' => 1, 'title' => 'Álgebra Básica', 'subject_area' => 'Matemáticas', 'type' => 'Video', 'difficulty_level' => 'Básico', 'active' => true],
-                (object)['id' => 2, 'title' => 'Leyes de Newton', 'subject_area' => 'Física', 'type' => 'Documento', 'difficulty_level' => 'Intermedio', 'active' => true],
-                (object)['id' => 3, 'title' => 'Tabla Periódica', 'subject_area' => 'Química', 'type' => 'Interactivo', 'difficulty_level' => 'Básico', 'active' => false],
-                (object)['id' => 4, 'title' => 'Algoritmos de Ordenamiento', 'subject_area' => 'Programación', 'type' => 'Video', 'difficulty_level' => 'Avanzado', 'active' => true],
-            ]);
-        }
-
-        $subjects = collect(['Matemáticas', 'Física', 'Química', 'Programación']);
-        $types = collect(['Video', 'Documento', 'Interactivo', 'Quiz']);
+        // 2. Obtener datos únicos para los filtros desde el DAO
+        $subjects = $this->contentDAO->getUniqueSubjectAreas();
+        $types = $this->contentDAO->getUniqueTypes();
         
         return view('admin.content.index', compact('contents', 'subjects', 'types'));
     }
 
     /**
-     * Show the form for creating new content.
+     * Muestra el formulario para crear un nuevo contenido.
      */
     public function create()
     {
-        $subjects = ['Matemáticas', 'Física', 'Química', 'Programación'];
-        $types = ['Video', 'Documento', 'Interactivo', 'Quiz'];
-        $difficulties = ['Básico', 'Intermedio', 'Avanzado'];
+        // Datos estáticos para los selectores del formulario
+        $subjects = ['Matemáticas', 'Física', 'Química', 'Programación', 'Historia', 'Biología'];
+        $types = ['Video', 'Documento', 'Interactivo', 'Quiz', 'PDF', 'Presentación'];
+        // Usamos las claves del mapa para mostrar al usuario (Texto)
+        $difficulties = array_keys(self::DIFFICULTY_MAP);
         
         return view('admin.content.create', compact('subjects', 'types', 'difficulties'));
     }
 
     /**
-     * Store newly created content.
+     * Almacena un nuevo contenido en la base de datos.
      */
     public function store(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'title' => 'required|string|max:255',
             'subject_area' => 'required|string|max:255',
             'type' => 'required|string|max:255',
-            'difficulty_level' => 'required|string|max:255',
+            // Valida que el texto recibido esté en nuestras claves permitidas
+            'difficulty_level' => 'required|in:' . implode(',', array_keys(self::DIFFICULTY_MAP)),
             'description' => 'nullable|string',
-            'content_url' => 'nullable|url',
+            // 👈 Corregido: Usar 'external_url' para coincidir con el esquema SQL
+            'external_url' => 'nullable|url|max:255',
+            'active' => 'nullable|boolean',
         ]);
 
-        // Crear contenido (ajusta según tu modelo)
-        ContentLibrary::create($request->all());
+        // Asegurar que active sea boolean (basado en si el checkbox fue marcado)
+        $validated['active'] = $request->has('active');
+
+        // 🚨 CRÍTICO: Mapeo de texto a entero antes de guardarlo en la DB
+        $validated['difficulty_level'] = self::DIFFICULTY_MAP[$validated['difficulty_level']];
+
+        // 3. Creación del contenido usando el DAO
+        $this->contentDAO->create($validated);
         
         return redirect()->route('admin.content.index')
             ->with('success', 'Contenido creado exitosamente.');
     }
 
     /**
-     * Display the specified content.
+     * Muestra un contenido específico.
      */
-    public function show($content)
+    public function show($id)
     {
-        // Buscar contenido real o simular datos
-        try {
-            $content = ContentLibrary::findOrFail($content);
-        } catch (\Exception $e) {
-            // Datos de ejemplo si no existe
-            $content = (object)[
-                'id' => $content,
-                'title' => 'Álgebra Básica',
-                'subject_area' => 'Matemáticas',
-                'type' => 'Video',
-                'difficulty_level' => 'Básico',
-                'description' => 'Introducción a los conceptos básicos de álgebra',
-                'content_url' => 'https://example.com/video',
-                'active' => true,
-                'views' => 245,
-                'created_at' => now()
-            ];
-        }
+        // 4. Búsqueda del contenido usando el DAO
+        $content = $this->contentDAO->findOrFail($id);
         
         return view('admin.content.show', compact('content'));
     }
 
     /**
-     * Show the form for editing content.
+     * Muestra el formulario para editar un contenido.
      */
-    public function edit($content)
+    public function edit($id)
     {
-        // Buscar contenido real o simular datos
-        try {
-            $content = ContentLibrary::findOrFail($content);
-        } catch (\Exception $e) {
-            $content = (object)[
-                'id' => $content,
-                'title' => 'Álgebra Básica',
-                'subject_area' => 'Matemáticas',
-                'type' => 'Video',
-                'difficulty_level' => 'Básico',
-                'description' => 'Introducción a los conceptos básicos de álgebra',
-                'content_url' => 'https://example.com/video'
-            ];
-        }
+        // 5. Búsqueda del contenido usando el DAO
+        $content = $this->contentDAO->findOrFail($id);
         
-        $subjects = ['Matemáticas', 'Física', 'Química', 'Programación'];
-        $types = ['Video', 'Documento', 'Interactivo', 'Quiz'];
-        $difficulties = ['Básico', 'Intermedio', 'Avanzado'];
+        // Datos estáticos para los selectores del formulario
+        $subjects = ['Matemáticas', 'Física', 'Química', 'Programación', 'Historia', 'Biología'];
+        $types = ['Video', 'Documento', 'Interactivo', 'Quiz', 'PDF', 'Presentación'];
+        // Usamos las claves del mapa para mostrar al usuario (Texto)
+        $difficulties = array_keys(self::DIFFICULTY_MAP);
         
         return view('admin.content.edit', compact('content', 'subjects', 'types', 'difficulties'));
     }
 
     /**
-     * Update the specified content.
+     * Actualiza un contenido existente.
      */
-    public function update(Request $request, $content)
+    public function update(Request $request, $id)
     {
-        $request->validate([
+        $validated = $request->validate([
             'title' => 'required|string|max:255',
             'subject_area' => 'required|string|max:255',
             'type' => 'required|string|max:255',
-            'difficulty_level' => 'required|string|max:255',
+            // Valida que el texto recibido esté en nuestras claves permitidas
+            'difficulty_level' => 'required|in:' . implode(',', array_keys(self::DIFFICULTY_MAP)),
             'description' => 'nullable|string',
-            'content_url' => 'nullable|url',
+            // 👈 Corregido: Usar 'external_url' para coincidir con el esquema SQL
+            'external_url' => 'nullable|url|max:255',
+            'active' => 'nullable|boolean',
         ]);
 
-        // Actualizar contenido (ajusta según tu modelo)
-        // $content = ContentLibrary::findOrFail($content);
-        // $content->update($request->all());
+        $validated['active'] = $request->has('active');
+
+        // 🚨 CRÍTICO: Mapeo de texto a entero antes de guardarlo en la DB
+        $validated['difficulty_level'] = self::DIFFICULTY_MAP[$validated['difficulty_level']];
+
+        // 6. Actualización del contenido usando el DAO
+        $this->contentDAO->update($id, $validated);
         
         return redirect()->route('admin.content.index')
             ->with('success', 'Contenido actualizado exitosamente.');
     }
 
     /**
-     * Remove the specified content.
+     * Elimina un contenido específico.
      */
-    public function destroy($content)
+    public function destroy($id)
     {
-        // Eliminar contenido (ajusta según tu modelo)
-        // ContentLibrary::findOrFail($content)->delete();
+        // 7. Eliminación del contenido usando el DAO
+        $this->contentDAO->delete($id);
         
         return redirect()->route('admin.content.index')
             ->with('success', 'Contenido eliminado exitosamente.');
     }
 
     /**
-     * Handle bulk upload of content.
+     * Maneja la carga masiva de contenidos (función pendiente de implementar).
      */
     public function bulkUpload(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:csv,xlsx',
+            'file' => 'required|file|mimes:csv,xlsx,xls',
         ]);
 
-        // Procesar archivo subido (implementar según necesidades)
+        // TODO: Implementar procesamiento de archivo CSV/Excel usando el DAO para crear los contenidos.
         
         return redirect()->route('admin.content.index')
-            ->with('success', 'Contenidos cargados masivamente exitosamente.');
+            ->with('success', 'Contenidos cargados masivamente (función pendiente de implementar).');
     }
 }

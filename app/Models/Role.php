@@ -53,4 +53,12 @@ class Role extends Model
     {
         return strtolower($this->name) === 'estudiante';
     }
+
+    /**
+     * Verificar si es rol pendiente (sin asignar)
+     */
+    public function isPending()
+    {
+        return strtolower($this->name) === 'sin rol';   
+}
 }

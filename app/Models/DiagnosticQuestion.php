@@ -10,7 +10,7 @@ class DiagnosticQuestion extends Model
     use HasFactory;
 
     protected $fillable = [
-        'diagnostic_id', 'question', 'options', 'correct_answer', 
+        'diagnostic_id', 'question_text', 'options', 'correct_answer', 
         'difficulty_level', 'topic'
     ];
 

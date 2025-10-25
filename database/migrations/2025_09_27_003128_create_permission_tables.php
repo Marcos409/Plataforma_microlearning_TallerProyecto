@@ -23,13 +23,18 @@ return new class extends Migration
         Schema::create($tableNames['permissions'], static function (Blueprint $table) {
             // $table->engine('InnoDB');
             $table->bigIncrements('id'); // permission id
-            $table->string('name');       // For MyISAM use string('name', 225); // (or 166 for InnoDB with Redundant/Compact row format)
-            $table->string('guard_name'); // For MyISAM use string('guard_name', 25);
+            $table->string('name');      
+            $table->string('guard_name'); 
             $table->timestamps();
 
             $table->unique(['name', 'guard_name']);
         });
 
+        // =========================================================================
+        // BLOQUE COMENTADO: La tabla 'roles' ya fue creada por la migración del usuario 
+        // y tiene los campos necesarios. Comentar este bloque evita el error de duplicidad.
+        // =========================================================================
+        /*
         Schema::create($tableNames['roles'], static function (Blueprint $table) use ($teams, $columnNames) {
             // $table->engine('InnoDB');
             $table->bigIncrements('id'); // role id
@@ -37,8 +42,8 @@ return new class extends Migration
                 $table->unsignedBigInteger($columnNames['team_foreign_key'])->nullable();
                 $table->index($columnNames['team_foreign_key'], 'roles_team_foreign_key_index');
             }
-            $table->string('name');       // For MyISAM use string('name', 225); // (or 166 for InnoDB with Redundant/Compact row format)
-            $table->string('guard_name'); // For MyISAM use string('guard_name', 25);
+            $table->string('name');      
+            $table->string('guard_name'); 
             $table->timestamps();
             if ($teams || config('permission.testing')) {
                 $table->unique([$columnNames['team_foreign_key'], 'name', 'guard_name']);
@@ -46,6 +51,8 @@ return new class extends Migration
                 $table->unique(['name', 'guard_name']);
             }
         });
+        */
+        // =========================================================================
 
         Schema::create($tableNames['model_has_permissions'], static function (Blueprint $table) use ($tableNames, $columnNames, $pivotPermission, $teams) {
             $table->unsignedBigInteger($pivotPermission);
@@ -80,7 +87,7 @@ return new class extends Migration
 
             $table->foreign($pivotRole)
                 ->references('id') // role id
-                ->on($tableNames['roles'])
+                ->on($tableNames['roles']) // Apunta a tu tabla 'roles' ya existente
                 ->onDelete('cascade');
             if ($teams) {
                 $table->unsignedBigInteger($columnNames['team_foreign_key']);
@@ -105,7 +112,7 @@ return new class extends Migration
 
             $table->foreign($pivotRole)
                 ->references('id') // role id
-                ->on($tableNames['roles'])
+                ->on($tableNames['roles']) // Apunta a tu tabla 'roles' ya existente
                 ->onDelete('cascade');
 
             $table->primary([$pivotPermission, $pivotRole], 'role_has_permissions_permission_id_role_id_primary');
@@ -130,7 +137,7 @@ return new class extends Migration
         Schema::drop($tableNames['role_has_permissions']);
         Schema::drop($tableNames['model_has_roles']);
         Schema::drop($tableNames['model_has_permissions']);
-        Schema::drop($tableNames['roles']);
+        Schema::drop($tableNames['roles']); 
         Schema::drop($tableNames['permissions']);
     }
 };
