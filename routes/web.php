@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use App\Models\User;
 use App\Http\Controllers\Admin\SettingsController;
-use App\Http\Controllers\Admin\AdminUserController as AdminUserController;
+use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Student\DiagnosticController as StudentDiagnosticController;
 use App\Http\Controllers\Student\DashboardController as StudentDashboardController;
 use App\Http\Controllers\Student\ContentController as StudentContentController;
@@ -16,6 +16,7 @@ use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Teacher\DashboardController as TeacherDashboardController;
 use App\Http\Controllers\Teacher\StudentProgressController as TeacherStudentController;
 use App\Http\Controllers\Admin\FollowUpController;
+use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\AI\PredictionController;
 use App\Http\Controllers\Admin\MLAnalysisController;
@@ -42,24 +43,26 @@ Route::get('/', function () {
 
 Route::middleware(['auth'])->group(function () {
     
-    // Rutas para Estudiantes
+    // ========================================
+    // RUTAS PARA ESTUDIANTES
+    // ========================================
     Route::prefix('student')->name('student.')->middleware('role:student')->group(function () {
         Route::get('/dashboard', [StudentDashboardController::class, 'index'])->name('dashboard');
         Route::post('/update-activity', [StudentDashboardController::class, 'updateActivity'])->name('update-activity');
         
-        // Diagnósticos
+        // Diagnósticos (cambiado {diagnostic} por {id})
         Route::prefix('diagnostics')->name('diagnostics.')->group(function () {
             Route::get('/', [StudentDiagnosticController::class, 'index'])->name('index');
-            Route::get('/{diagnostic}', [StudentDiagnosticController::class, 'show'])->name('show');
-            Route::post('/{diagnostic}/submit', [StudentDiagnosticController::class, 'submit'])->name('submit');
-            Route::get('/{diagnostic}/result', [StudentDiagnosticController::class, 'result'])->name('result');
+            Route::get('/{id}', [StudentDiagnosticController::class, 'show'])->name('show');
+            Route::post('/{id}/submit', [StudentDiagnosticController::class, 'submit'])->name('submit');
+            Route::get('/{id}/result', [StudentDiagnosticController::class, 'result'])->name('result');
         });
         
-        // Contenidos
+        // Contenidos (cambiado {content} por {id})
         Route::prefix('content')->name('content.')->group(function () {
             Route::get('/', [StudentContentController::class, 'index'])->name('index');
-            Route::get('/{content}', [StudentContentController::class, 'show'])->name('show');
-            Route::post('/{content}/complete', [StudentContentController::class, 'markAsComplete'])->name('complete');
+            Route::get('/{id}', [StudentContentController::class, 'show'])->name('show');
+            Route::post('/{id}/complete', [StudentContentController::class, 'markAsComplete'])->name('complete');
         });
         
         // Progreso
@@ -68,32 +71,48 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/subject/{subject}', [StudentProgressController::class, 'bySubject'])->name('by-subject');
         });
         
-        // Rutas de aprendizaje
+        // Rutas de aprendizaje (cambiado {learningPath} por {id})
         Route::prefix('learning-paths')->name('learning-paths.')->group(function () {
             Route::get('/', [StudentContentController::class, 'learningPaths'])->name('index');
-            Route::get('/{learningPath}', [StudentContentController::class, 'showLearningPath'])->name('show');
+            Route::get('/{id}', [StudentContentController::class, 'showLearningPath'])->name('show');
         });
         
-        // Recomendaciones
+        // Recomendaciones (cambiado {recommendation} por {id})
         Route::prefix('recommendations')->name('recommendations.')->group(function () {
             Route::get('/', [StudentContentController::class, 'recommendations'])->name('index');
-            Route::post('/{recommendation}/mark-viewed', [StudentContentController::class, 'markRecommendationViewed'])->name('mark-viewed');
+            Route::post('/{id}/mark-viewed', [StudentContentController::class, 'markRecommendationViewed'])->name('mark-viewed');
         });
     });
 
-    // Rutas para Administradores
+    // ========================================
+    // RUTAS PARA ADMINISTRADORES
+    // ========================================
     Route::prefix('admin')->name('admin.')->middleware('role:admin')->group(function () {
         Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
-        Route::patch('users/{user}/update-role', [AdminUserController::class, 'updateRole'])->name('users.update-role');
-        Route::patch('users/{user}/assign-role', [AdminUserController::class, 'assignRole'])->name('users.assign-role');
-        // Dentro del grupo Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {  
-    Route::get('/ml/resultados', [App\Http\Controllers\Admin\MLAnalysisController::class, 'showResults'])->name('ml.results');
-
-        // Gestión de estudiantes
-        Route::resource('students', AdminStudentController::class);
-        Route::get('/students/export', [AdminStudentController::class, 'export'])->name('students.export');
         
+        // ML Analysis
+        Route::get('/ml/resultados', [MLAnalysisController::class, 'showResults'])->name('ml.results');
+        Route::post('/ml/analyze/{id}', [MLAnalysisController::class, 'analyzeStudent'])->name('ml.analyze');
+        Route::post('/ml/analyze-all', [MLAnalysisController::class, 'analyzeAll'])->name('ml.analyzeAll');
+
+        // ========================================
+        // Gestión de estudiantes (CAMBIADO A PDO)
+        // ========================================
+        Route::prefix('students')->name('students.')->group(function () {
+            Route::get('/', [AdminStudentController::class, 'index'])->name('index');
+            Route::get('/create', [AdminStudentController::class, 'create'])->name('create');
+            Route::post('/', [AdminStudentController::class, 'store'])->name('store');
+            Route::get('/export', [AdminStudentController::class, 'export'])->name('export');
+            Route::get('/{id}', [AdminStudentController::class, 'show'])->name('show');
+            Route::get('/{id}/edit', [AdminStudentController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [AdminStudentController::class, 'update'])->name('update');
+            Route::delete('/{id}', [AdminStudentController::class, 'destroy'])->name('destroy');
+            Route::get('/{id}/follow-ups', [FollowUpController::class, 'studentFollowUps'])->name('follow-ups');
+        });
+        
+        // ========================================
         // Gestión completa de usuarios
+        // ========================================
         Route::prefix('users')->name('users.')->group(function () {
             Route::get('/', [AdminUserController::class, 'index'])->name('index');
             Route::get('/create', [AdminUserController::class, 'create'])->name('create');
@@ -101,14 +120,17 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/pending', [AdminUserController::class, 'pending'])->name('pending');
             Route::post('/bulk-assign-role', [AdminUserController::class, 'bulkAssignRole'])->name('bulk-assign-role');
             Route::get('/export', [AdminUserController::class, 'export'])->name('export');
-            Route::get('/{user}', [AdminUserController::class, 'show'])->name('show');
-            Route::get('/{user}/edit', [AdminUserController::class, 'edit'])->name('edit');
-            Route::put('/{user}', [AdminUserController::class, 'update'])->name('update');
-            Route::delete('/{user}', [AdminUserController::class, 'destroy'])->name('destroy');
-            Route::patch('/{user}/role', [AdminUserController::class, 'updateRole'])->name('update-role');
+            Route::get('/{id}', [AdminUserController::class, 'show'])->name('show');
+            Route::get('/{id}/edit', [AdminUserController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [AdminUserController::class, 'update'])->name('update');
+            Route::delete('/{id}', [AdminUserController::class, 'destroy'])->name('destroy');
+            Route::patch('/{id}/role', [AdminUserController::class, 'updateRole'])->name('update-role');
+            Route::patch('/{id}/assign-role', [AdminUserController::class, 'assignRole'])->name('assign-role');
         });
 
+        // ========================================
         // Gestión de roles
+        // ========================================
         Route::prefix('roles')->name('roles.')->group(function () {
             Route::get('/', [RoleController::class, 'index'])->name('index');
             Route::get('/users', [RoleController::class, 'getUsers'])->name('users');
@@ -117,65 +139,116 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/remove', [RoleController::class, 'removeRole'])->name('remove');
         });
         
+        // ========================================
         // Configuración de cuenta
-Route::prefix('settings')->name('settings.')->group(function () {
-    Route::get('/', [App\Http\Controllers\Admin\SettingsController::class, 'index'])->name('index');
-    Route::put('/profile', [App\Http\Controllers\Admin\SettingsController::class, 'updateProfile'])->name('update-profile');
-    Route::put('/password', [App\Http\Controllers\Admin\SettingsController::class, 'updatePassword'])->name('update-password');
-});
-        // Gestión de diagnósticos
-        Route::resource('diagnostics', AdminDiagnosticController::class);
-        Route::prefix('diagnostics/{diagnostic}/questions')->name('diagnostics.questions.')->group(function () {
-            Route::get('/', [AdminDiagnosticController::class, 'questionsIndex'])->name('index');
-            Route::get('/create', [AdminDiagnosticController::class, 'questionsCreate'])->name('create');
-            Route::post('/', [AdminDiagnosticController::class, 'questionsStore'])->name('store');
-            Route::get('/{question}/edit', [AdminDiagnosticController::class, 'questionsEdit'])->name('edit');
-            Route::put('/{question}', [AdminDiagnosticController::class, 'questionsUpdate'])->name('update');
-            Route::delete('/{question}', [AdminDiagnosticController::class, 'questionsDestroy'])->name('destroy');
+        // ========================================
+        Route::prefix('settings')->name('settings.')->group(function () {
+            Route::get('/', [SettingsController::class, 'index'])->name('index');
+            Route::put('/profile', [SettingsController::class, 'updateProfile'])->name('update-profile');
+            Route::put('/password', [SettingsController::class, 'updatePassword'])->name('update-password');
         });
         
-        // Gestión de contenidos
-        Route::resource('content', AdminContentController::class);
-        Route::post('/content/bulk-upload', [AdminContentController::class, 'bulkUpload'])->name('content.bulk-upload');
+        // ========================================
+        // Gestión de diagnósticos (cambiado {diagnostic} y {question} por {id})
+        // ========================================
+        Route::prefix('diagnostics')->name('diagnostics.')->group(function () {
+            Route::get('/', [AdminDiagnosticController::class, 'index'])->name('index');
+            Route::get('/create', [AdminDiagnosticController::class, 'create'])->name('create');
+            Route::post('/', [AdminDiagnosticController::class, 'store'])->name('store');
+            Route::get('/{id}', [AdminDiagnosticController::class, 'show'])->name('show');
+            Route::get('/{id}/edit', [AdminDiagnosticController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [AdminDiagnosticController::class, 'update'])->name('update');
+            Route::delete('/{id}', [AdminDiagnosticController::class, 'destroy'])->name('destroy');
+            
+            // Preguntas del diagnóstico
+            Route::prefix('{diagnostic_id}/questions')->name('questions.')->group(function () {
+                Route::get('/', [AdminDiagnosticController::class, 'questionsIndex'])->name('index');
+                Route::get('/create', [AdminDiagnosticController::class, 'questionsCreate'])->name('create');
+                Route::post('/', [AdminDiagnosticController::class, 'questionsStore'])->name('store');
+                Route::get('/{question_id}/edit', [AdminDiagnosticController::class, 'questionsEdit'])->name('edit');
+                Route::put('/{question_id}', [AdminDiagnosticController::class, 'questionsUpdate'])->name('update');
+                Route::delete('/{question_id}', [AdminDiagnosticController::class, 'questionsDestroy'])->name('destroy');
+            });
+        });
         
-        // Reportes
+        // ========================================
+        // Gestión de contenidos (cambiado {content} por {id})
+        // ========================================
+        Route::prefix('content')->name('content.')->group(function () {
+            Route::get('/', [AdminContentController::class, 'index'])->name('index');
+            Route::get('/create', [AdminContentController::class, 'create'])->name('create');
+            Route::post('/', [AdminContentController::class, 'store'])->name('store');
+            Route::post('/bulk-upload', [AdminContentController::class, 'bulkUpload'])->name('bulk-upload');
+            Route::get('/{id}', [AdminContentController::class, 'show'])->name('show');
+            Route::get('/{id}/edit', [AdminContentController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [AdminContentController::class, 'update'])->name('update');
+            Route::delete('/{id}', [AdminContentController::class, 'destroy'])->name('destroy');
+        });
+        
+        // ========================================
+        // Reportes (AGREGADO ReportController)
+        // ========================================
         Route::prefix('reports')->name('reports.')->group(function () {
-            Route::get('/', [AdminDashboardController::class, 'reports'])->name('index');
-            Route::get('/students', [AdminDashboardController::class, 'studentReports'])->name('students');
-            Route::get('/performance', [AdminDashboardController::class, 'performanceReports'])->name('performance');
-            Route::get('/risk', [AdminDashboardController::class, 'riskReports'])->name('risk');
-            Route::post('/generate', [AdminDashboardController::class, 'generateReport'])->name('generate');
-        
+            Route::get('/', [ReportController::class, 'index'])->name('index');
+            Route::get('/dashboard', [ReportController::class, 'dashboard'])->name('dashboard');
+            Route::get('/students', [ReportController::class, 'students'])->name('students');
+            Route::get('/performance', [ReportController::class, 'performance'])->name('performance');
+            Route::get('/risk', [ReportController::class, 'risk'])->name('risk');
+            Route::get('/content', [ReportController::class, 'content'])->name('content');
+            Route::get('/progress', [ReportController::class, 'progress'])->name('progress');
+            Route::get('/ml-analysis', [ReportController::class, 'mlAnalysis'])->name('ml-analysis');
+            
+            // Exportaciones
+            Route::get('/export/csv', [ReportController::class, 'exportCsv'])->name('export.csv');
+            Route::get('/export/pdf', [ReportController::class, 'exportPdf'])->name('export.pdf');
+            
             // Acciones para estudiantes en riesgo
-            Route::post('/send-email/{user}', [AdminDashboardController::class, 'sendEmail'])->name('send-email');
-            Route::post('/schedule-followup/{user}', [AdminDashboardController::class, 'scheduleFollowUp'])->name('schedule-followup');
-
-        
+            Route::post('/send-email/{id}', [AdminDashboardController::class, 'sendEmail'])->name('send-email');
+            Route::post('/schedule-followup/{id}', [AdminDashboardController::class, 'scheduleFollowUp'])->name('schedule-followup');
         });
         
+        // ========================================
+        // Seguimientos (Follow-ups)
+        // ========================================
+        Route::prefix('follow-ups')->name('follow-ups.')->group(function () {
+            Route::get('/', [FollowUpController::class, 'index'])->name('index');
+            Route::get('/create', [FollowUpController::class, 'create'])->name('create');
+            Route::post('/', [FollowUpController::class, 'store'])->name('store');
+            Route::get('/upcoming', [FollowUpController::class, 'upcoming'])->name('upcoming');
+            Route::get('/{id}', [FollowUpController::class, 'show'])->name('show');
+            Route::get('/{id}/edit', [FollowUpController::class, 'edit'])->name('edit');
+            Route::put('/{id}', [FollowUpController::class, 'update'])->name('update');
+            Route::delete('/{id}', [FollowUpController::class, 'destroy'])->name('destroy');
+            Route::post('/{id}/complete', [FollowUpController::class, 'complete'])->name('complete');
+            Route::post('/{id}/cancel', [FollowUpController::class, 'cancel'])->name('cancel');
+        });
+        
+        // ========================================
         // Monitoreo del sistema
+        // ========================================
         Route::prefix('monitoring')->name('monitoring.')->group(function () {
             Route::get('/', [AdminDashboardController::class, 'systemMonitoring'])->name('index');
             Route::get('/usage', [AdminDashboardController::class, 'usageStats'])->name('usage');
         });
-
     });
 
-    // Rutas para Docentes
+    // ========================================
+    // RUTAS PARA DOCENTES
+    // ========================================
     Route::prefix('teacher')->name('teacher.')->middleware('role:teacher')->group(function () {
         Route::get('/dashboard', [TeacherDashboardController::class, 'index'])->name('dashboard');
         
-        // Seguimiento de estudiantes
+        // Seguimiento de estudiantes (cambiado {student} por {id})
         Route::prefix('students')->name('students.')->group(function () {
             Route::get('/', [TeacherStudentController::class, 'index'])->name('index');
-            Route::get('/{student}', [TeacherStudentController::class, 'show'])->name('show');
-            Route::post('/{student}/recommend', [TeacherStudentController::class, 'recommendContent'])->name('recommend');
+            Route::get('/{id}', [TeacherStudentController::class, 'show'])->name('show');
+            Route::post('/{id}/recommend', [TeacherStudentController::class, 'recommendContent'])->name('recommend');
         });
         
-        // Alertas
+        // Alertas (cambiado {alert} por {id})
         Route::prefix('alerts')->name('alerts.')->group(function () {
             Route::get('/', [TeacherDashboardController::class, 'alerts'])->name('index');
-            Route::post('/{alert}/resolve', [TeacherDashboardController::class, 'resolveAlert'])->name('resolve');
+            Route::post('/{id}/resolve', [TeacherDashboardController::class, 'resolveAlert'])->name('resolve');
         });
         
         // Reportes
@@ -186,20 +259,12 @@ Route::prefix('settings')->name('settings.')->group(function () {
         });
     });
 
-    // Rutas para el sistema de IA/Predicción
+    // ========================================
+    // RUTAS PARA IA/PREDICCIÓN
+    // ========================================
     Route::prefix('ai')->name('ai.')->group(function () {
         Route::post('/predict-difficulties', [PredictionController::class, 'predictDifficulties'])->name('predict-difficulties');
         Route::post('/generate-recommendations', [PredictionController::class, 'generateRecommendations'])->name('generate-recommendations');
         Route::post('/update-learning-path', [PredictionController::class, 'updateLearningPath'])->name('update-learning-path');
     });
-
-    Route::middleware(['auth', 'role:admin'])->group(function () {
-        Route::post('/admin/ml/analyze/{user}', [MLAnalysisController::class, 'analyzeStudent'])
-            ->name('admin.ml.analyze');
-        
-        Route::post('/admin/ml/analyze-all', [MLAnalysisController::class, 'analyzeAll'])
-            ->name('admin.ml.analyzeAll');
-    });
-
-    
 });

@@ -92,15 +92,15 @@
                                             </td>
                                             <td>
                                                 <div class="btn-group" role="group">
-                                                    <a href="{{ route('admin.users.show', $user) }}" 
+                                                    <a href="{{ route('admin.users.show', $user->id) }}" 
                                                        class="btn btn-sm btn-outline-info" title="Ver">
                                                         <i class="fas fa-eye"></i>
                                                     </a>
-                                                    <a href="{{ route('admin.users.edit', $user) }}" 
+                                                    <a href="{{ route('admin.users.edit', $user->id) }}" 
                                                        class="btn btn-sm btn-outline-primary" title="Editar">
                                                         <i class="fas fa-edit"></i>
                                                     </a>
-                                                    <form action="{{ route('admin.users.destroy', $user) }}" 
+                                                    <form action="{{ route('admin.users.destroy', $user->id) }}" 
                                                             method="POST" 
                                                             class="d-inline"
                                                             onsubmit="return confirm('¿Estás seguro de eliminar este usuario?');">

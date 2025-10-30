@@ -2,27 +2,31 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Contracts\ContentDAOInterface;
+use App\DataAccessModels\ContenidoModel;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 
 class ContentController extends Controller
 {
-    protected ContentDAOInterface $contentDAO;
+    protected $contenidoModel;
 
-    // Define el mapeo de dificultad de texto a entero (INT) para la base de datos
+    // Mapeo de dificultad: texto a valor para la BD
     protected const DIFFICULTY_MAP = [
         'Básico' => 1,
         'Intermedio' => 2,
         'Avanzado' => 3,
     ];
 
-    /**
-     * Inyección de dependencia del ContentDAOInterface.
-     */
-    public function __construct(ContentDAOInterface $contentDAO)
+    // Mapeo inverso: valor de BD a texto (para mostrar en vistas)
+    protected const DIFFICULTY_REVERSE_MAP = [
+        1 => 'Básico',
+        2 => 'Intermedio',
+        3 => 'Avanzado',
+    ];
+
+    public function __construct()
     {
-        $this->contentDAO = $contentDAO;
+        $this->contenidoModel = new ContenidoModel();
     }
 
     /**
@@ -30,13 +34,20 @@ class ContentController extends Controller
      */
     public function index(Request $request)
     {
-        // 1. Obtener contenidos paginados con filtros desde el DAO
-        $contents = $this->contentDAO->getFilteredAndPaginated($request);
+        // ✅ Obtener contenidos filtrados desde PDO
+        $filters = [
+            'subject_area' => $request->get('subject_area'),
+            'type' => $request->get('type'),
+            'difficulty_level' => $request->get('difficulty_level'),
+            'search' => $request->get('search'),
+        ];
 
-        // 2. Obtener datos únicos para los filtros desde el DAO
-        $subjects = $this->contentDAO->getUniqueSubjectAreas();
-        $types = $this->contentDAO->getUniqueTypes();
-        
+        $contents = $this->contenidoModel->listarContenidosFiltrados($filters);
+
+        // ✅ Obtener datos únicos para los filtros
+        $subjects = $this->contenidoModel->obtenerAreasUnicas();
+        $types = $this->contenidoModel->obtenerTiposUnicos();
+
         return view('admin.content.index', compact('contents', 'subjects', 'types'));
     }
 
@@ -47,9 +58,8 @@ class ContentController extends Controller
     {
         // Datos estáticos para los selectores del formulario
         $subjects = ['Matemáticas', 'Física', 'Química', 'Programación', 'Historia', 'Biología'];
-        $types = ['Video', 'Documento', 'Interactivo', 'Quiz', 'PDF', 'Presentación'];
-        // Usamos las claves del mapa para mostrar al usuario (Texto)
-        $difficulties = array_keys(self::DIFFICULTY_MAP);
+        $types = ['Video', 'Documento', 'Interactivo', 'Quiz', 'Artículo'];
+        $difficulties = array_keys(self::DIFFICULTY_MAP); // ['Básico', 'Intermedio', 'Avanzado']
         
         return view('admin.content.create', compact('subjects', 'types', 'difficulties'));
     }
@@ -61,25 +71,34 @@ class ContentController extends Controller
     {
         $validated = $request->validate([
             'title' => 'required|string|max:255',
-            'subject_area' => 'required|string|max:255',
-            'type' => 'required|string|max:255',
-            // Valida que el texto recibido esté en nuestras claves permitidas
+            'subject_area' => 'required|string|max:100',
+            'topic' => 'nullable|string|max:100',
+            'type' => 'required|in:Video,Documento,Interactivo,Quiz,Artículo',
             'difficulty_level' => 'required|in:' . implode(',', array_keys(self::DIFFICULTY_MAP)),
             'description' => 'nullable|string',
-            // 👈 Corregido: Usar 'external_url' para coincidir con el esquema SQL
-            'external_url' => 'nullable|url|max:255',
+            'content_url' => 'nullable|url|max:500',
+            'duration_minutes' => 'nullable|integer|min:1',
+            'tags' => 'nullable|string',
             'active' => 'nullable|boolean',
         ]);
 
-        // Asegurar que active sea boolean (basado en si el checkbox fue marcado)
-        $validated['active'] = $request->has('active');
+        // Asegurar que active sea boolean
+        $validated['active'] = $request->has('active') ? 1 : 0;
 
-        // 🚨 CRÍTICO: Mapeo de texto a entero antes de guardarlo en la DB
-        $validated['difficulty_level'] = self::DIFFICULTY_MAP[$validated['difficulty_level']];
+        // 🚨 CRÍTICO: Convertir dificultad de texto a ENUM de BD
+        // La BD usa ENUM('Básico', 'Intermedio', 'Avanzado'), no enteros
+        // Mantener el texto original
+        $validated['difficulty_level'] = $validated['difficulty_level'];
 
-        // 3. Creación del contenido usando el DAO
-        $this->contentDAO->create($validated);
+        // ✅ Crear contenido usando PDO
+        $contentId = $this->contenidoModel->crearContenido($validated);
         
+        if (!$contentId) {
+            return redirect()->back()
+                ->with('error', 'Error al crear el contenido.')
+                ->withInput();
+        }
+
         return redirect()->route('admin.content.index')
             ->with('success', 'Contenido creado exitosamente.');
     }
@@ -89,9 +108,13 @@ class ContentController extends Controller
      */
     public function show($id)
     {
-        // 4. Búsqueda del contenido usando el DAO
-        $content = $this->contentDAO->findOrFail($id);
+        // ✅ Buscar contenido usando PDO
+        $content = $this->contenidoModel->obtenerContenido($id);
         
+        if (!$content) {
+            abort(404, 'Contenido no encontrado.');
+        }
+
         return view('admin.content.show', compact('content'));
     }
 
@@ -100,13 +123,16 @@ class ContentController extends Controller
      */
     public function edit($id)
     {
-        // 5. Búsqueda del contenido usando el DAO
-        $content = $this->contentDAO->findOrFail($id);
+        // ✅ Buscar contenido usando PDO
+        $content = $this->contenidoModel->obtenerContenido($id);
         
+        if (!$content) {
+            abort(404, 'Contenido no encontrado.');
+        }
+
         // Datos estáticos para los selectores del formulario
         $subjects = ['Matemáticas', 'Física', 'Química', 'Programación', 'Historia', 'Biología'];
-        $types = ['Video', 'Documento', 'Interactivo', 'Quiz', 'PDF', 'Presentación'];
-        // Usamos las claves del mapa para mostrar al usuario (Texto)
+        $types = ['Video', 'Documento', 'Interactivo', 'Quiz', 'Artículo'];
         $difficulties = array_keys(self::DIFFICULTY_MAP);
         
         return view('admin.content.edit', compact('content', 'subjects', 'types', 'difficulties'));
@@ -119,24 +145,31 @@ class ContentController extends Controller
     {
         $validated = $request->validate([
             'title' => 'required|string|max:255',
-            'subject_area' => 'required|string|max:255',
-            'type' => 'required|string|max:255',
-            // Valida que el texto recibido esté en nuestras claves permitidas
+            'subject_area' => 'required|string|max:100',
+            'topic' => 'nullable|string|max:100',
+            'type' => 'required|in:Video,Documento,Interactivo,Quiz,Artículo',
             'difficulty_level' => 'required|in:' . implode(',', array_keys(self::DIFFICULTY_MAP)),
             'description' => 'nullable|string',
-            // 👈 Corregido: Usar 'external_url' para coincidir con el esquema SQL
-            'external_url' => 'nullable|url|max:255',
+            'content_url' => 'nullable|url|max:500',
+            'duration_minutes' => 'nullable|integer|min:1',
+            'tags' => 'nullable|string',
             'active' => 'nullable|boolean',
         ]);
 
-        $validated['active'] = $request->has('active');
+        $validated['active'] = $request->has('active') ? 1 : 0;
 
-        // 🚨 CRÍTICO: Mapeo de texto a entero antes de guardarlo en la DB
-        $validated['difficulty_level'] = self::DIFFICULTY_MAP[$validated['difficulty_level']];
+        // Mantener el texto de dificultad (ENUM en BD)
+        $validated['difficulty_level'] = $validated['difficulty_level'];
 
-        // 6. Actualización del contenido usando el DAO
-        $this->contentDAO->update($id, $validated);
+        // ✅ Actualizar contenido usando PDO
+        $updated = $this->contenidoModel->actualizarContenido($id, $validated);
         
+        if (!$updated) {
+            return redirect()->back()
+                ->with('error', 'Error al actualizar el contenido.')
+                ->withInput();
+        }
+
         return redirect()->route('admin.content.index')
             ->with('success', 'Contenido actualizado exitosamente.');
     }
@@ -146,15 +179,20 @@ class ContentController extends Controller
      */
     public function destroy($id)
     {
-        // 7. Eliminación del contenido usando el DAO
-        $this->contentDAO->delete($id);
+        // ✅ Eliminar contenido usando PDO
+        $deleted = $this->contenidoModel->eliminarContenido($id);
         
+        if (!$deleted) {
+            return redirect()->back()
+                ->with('error', 'Error al eliminar el contenido.');
+        }
+
         return redirect()->route('admin.content.index')
             ->with('success', 'Contenido eliminado exitosamente.');
     }
 
     /**
-     * Maneja la carga masiva de contenidos (función pendiente de implementar).
+     * Maneja la carga masiva de contenidos desde CSV/Excel.
      */
     public function bulkUpload(Request $request)
     {
@@ -162,9 +200,20 @@ class ContentController extends Controller
             'file' => 'required|file|mimes:csv,xlsx,xls',
         ]);
 
-        // TODO: Implementar procesamiento de archivo CSV/Excel usando el DAO para crear los contenidos.
+        // TODO: Implementar procesamiento de archivo
+        // $result = $this->contenidoModel->cargaMasivaContenidos($request->file('file'));
         
         return redirect()->route('admin.content.index')
-            ->with('success', 'Contenidos cargados masivamente (función pendiente de implementar).');
+            ->with('info', 'Carga masiva pendiente de implementar.');
+    }
+
+    /**
+     * Incrementa el contador de vistas de un contenido.
+     */
+    public function incrementViews($id)
+    {
+        $this->contenidoModel->incrementarVistas($id);
+        
+        return response()->json(['success' => true]);
     }
 }

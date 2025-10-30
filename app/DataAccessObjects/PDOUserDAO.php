@@ -225,7 +225,7 @@ class EloquentUserDAO implements UserDAOInterface
         return $query;
     }
 
-    public function getUsersWithFilters(array $filters, int $perPage = 15): LengthAwarePaginator
+    public function getUsersWithFilters(array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
         $query = $this->model->newQuery();
         $query = $this->applyFilters($query, $filters);
@@ -241,7 +241,7 @@ class EloquentUserDAO implements UserDAOInterface
                            ->paginate(15);
     }
     
-    public function getUsersForExport(array $filters): Collection
+    public function getUsersForExport(array $filters = []): Collection
     {
         $query = $this->model->with('role');
         $query = $this->applyFilters($query, $filters);

@@ -39,7 +39,7 @@
         </div>
         @foreach($roles as $role)
         <div class="col-md-3">
-            <div class="card bg-info text-white">
+            <div class="card bg-warning text-white">
                 <div class="card-body text-center">
                     <i class="fas fa-user-shield fa-2x mb-2"></i>
                     <h4>{{ $role->users_count }}</h4>

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\DataAccessModels\UsuarioModel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -11,6 +12,16 @@ use Illuminate\Validation\Rules\Password;
 
 class SettingsController extends Controller
 {
+    protected $usuarioModel;
+
+    /**
+     * Constructor - Inyección de PDO
+     */
+    public function __construct()
+    {
+        $this->usuarioModel = new UsuarioModel();
+    }
+
     /**
      * Mostrar la página de configuración
      */
@@ -51,21 +62,25 @@ class SettingsController extends Controller
         ]);
 
         try {
-            // Preparar datos para actualizar
-            $dataToUpdate = [
-                'name' => $validated['name'],
-                'email' => $validated['email'],
-                'phone' => $validated['phone'] ?? null,
-                'career' => $validated['career'] ?? null,
-                'semester' => $validated['semester'] ?? null,
-            ];
+            // Actualizar usuario usando PDO con sp_actualizar_usuario_completo
+            $result = $this->usuarioModel->actualizarUsuarioCompleto(
+                $user->id,
+                $validated['name'],
+                $validated['email'],
+                $user->role_id, // Mantener el rol actual
+                $user->student_code, // Mantener el código de estudiante
+                $validated['career'] ?? null,
+                $validated['semester'] ?? null,
+                $validated['phone'] ?? null
+            );
 
-            // Actualizar usuario (usando el mismo método que AdminUserController)
-            $user->update($dataToUpdate);
-
-            return redirect()
-                ->route('admin.settings.index')
-                ->with('success', '¡Perfil actualizado exitosamente!');
+            if ($result) {
+                return redirect()
+                    ->route('admin.settings.index')
+                    ->with('success', '¡Perfil actualizado exitosamente!');
+            } else {
+                throw new \Exception('No se pudo actualizar el perfil');
+            }
 
         } catch (\Exception $e) {
             return redirect()
@@ -119,14 +134,19 @@ class SettingsController extends Controller
         }
 
         try {
-            // Actualizar contraseña
-            $user->update([
-                'password' => Hash::make($validated['new_password']),
-            ]);
+            // Actualizar contraseña usando PDO
+            $result = $this->usuarioModel->actualizarPassword(
+                $user->id, 
+                Hash::make($validated['new_password'])
+            );
 
-            return redirect()
-                ->route('admin.settings.index')
-                ->with('success', '¡Contraseña actualizada exitosamente! Por seguridad, considera cerrar sesión en otros dispositivos.');
+            if ($result) {
+                return redirect()
+                    ->route('admin.settings.index')
+                    ->with('success', '¡Contraseña actualizada exitosamente! Por seguridad, considera cerrar sesión en otros dispositivos.');
+            } else {
+                throw new \Exception('No se pudo actualizar la contraseña');
+            }
 
         } catch (\Exception $e) {
             return redirect()

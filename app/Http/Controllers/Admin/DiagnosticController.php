@@ -2,181 +2,330 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Contracts\DiagnosticDAOInterface; // 👈 Importamos la Interfaz
 use App\Http\Controllers\Controller;
-use App\Models\Diagnostic; // Se mantiene para Type Hinting de rutas
-use App\Models\DiagnosticQuestion; // Se mantiene para Type Hinting de rutas
+use App\DataAccessModels\DiagnosticoModel;
 use Illuminate\Http\Request;
 
 class DiagnosticController extends Controller
 {
-    protected DiagnosticDAOInterface $diagnosticDAO; // 👈 Usamos la Interfaz
+    protected $diagnosticoModel;
 
-    // Inyección de dependencia
-    public function __construct(DiagnosticDAOInterface $diagnosticDAO)
+    /**
+     * Constructor - Inyección del modelo PDO
+     */
+    public function __construct()
     {
-        $this->diagnosticDAO = $diagnosticDAO;
+        $this->diagnosticoModel = new DiagnosticoModel();
     }
 
+    /**
+     * Listar todos los diagnósticos
+     */
     public function index()
     {
-        // 1. Usar DAO para obtener todos los diagnósticos con conteo de preguntas
-        $diagnostics = $this->diagnosticDAO->getAllWithQuestionCount();
+        // Obtener diagnósticos usando SP
+        $diagnostics = $this->diagnosticoModel->listarDiagnosticos();
         
-        return view('admin.diagnostics.index', compact('diagnostics'));
+        return view('admin.diagnostics.index', [
+            'diagnostics' => $diagnostics
+        ]);
     }
 
+    /**
+     * Mostrar formulario de creación
+     */
     public function create()
     {
         return view('admin.diagnostics.create');
     }
 
+    /**
+     * Crear nuevo diagnóstico
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'subject_area' => 'required|string|max:255',
-            'passing_score' => 'required|integer|min:1|max:100',
+            'difficulty_level' => 'required|in:Básico,Intermedio,Avanzado',
+            'time_limit_minutes' => 'nullable|integer|min:1',
+            'passing_score' => 'required|numeric|min:1|max:100',
         ]);
 
-        // 2. Usar DAO para crear el diagnóstico
-        $diagnostic = $this->diagnosticDAO->createDiagnostic($validated);
+        // Crear diagnóstico usando SP
+        $diagnosticId = $this->diagnosticoModel->crearDiagnostico(
+            $validated['title'],
+            $validated['description'] ?? null,
+            $validated['subject_area'],
+            $validated['difficulty_level'],
+            $validated['time_limit_minutes'] ?? null,
+            $validated['passing_score']
+        );
 
-        return redirect()->route('admin.diagnostics.questions.index', $diagnostic)
+        if (!$diagnosticId) {
+            return redirect()->back()
+                ->with('error', 'Error al crear el diagnóstico')
+                ->withInput();
+        }
+
+        return redirect()->route('admin.diagnostics.questions.index', $diagnosticId)
             ->with('success', 'Diagnóstico creado. Ahora agrega las preguntas.');
     }
 
-    public function show(Diagnostic $diagnostic)
+    /**
+     * Mostrar un diagnóstico específico
+     */
+    public function show($id)
     {
-        // Nota: En la vista se debe cargar la relación 'questions', si no lo hace,
-        // se podría usar $this->diagnosticDAO->findWithQuestions($diagnostic->id);
-        
-        return view('admin.diagnostics.show', compact('diagnostic'));
+        // Obtener diagnóstico completo con preguntas usando SP
+        $data = $this->diagnosticoModel->obtenerDiagnosticoCompleto($id);
+
+        if (!$data) {
+            abort(404, 'Diagnóstico no encontrado');
+        }
+
+        return view('admin.diagnostics.show', [
+            'diagnostic' => $data['diagnostico'],
+            'questions' => $data['preguntas']
+        ]);
     }
 
-    public function edit(Diagnostic $diagnostic)
+    /**
+     * Mostrar formulario de edición
+     */
+    public function edit($id)
     {
-        return view('admin.diagnostics.edit', compact('diagnostic'));
+        // Obtener diagnóstico usando SP
+        $diagnostic = $this->diagnosticoModel->obtenerDiagnostico($id);
+
+        if (!$diagnostic) {
+            abort(404, 'Diagnóstico no encontrado');
+        }
+
+        return view('admin.diagnostics.edit', [
+            'diagnostic' => $diagnostic
+        ]);
     }
 
-    public function update(Request $request, Diagnostic $diagnostic)
+    /**
+     * Actualizar diagnóstico
+     */
+    public function update(Request $request, $id)
     {
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'subject_area' => 'required|string|max:255',
-            'passing_score' => 'required|integer|min:1|max:100',
+            'difficulty_level' => 'required|in:Básico,Intermedio,Avanzado',
+            'time_limit_minutes' => 'nullable|integer|min:1',
+            'passing_score' => 'required|numeric|min:1|max:100',
             'active' => 'nullable|boolean',
         ]);
-        
-        $validated['active'] = $request->has('active');
-        
-        // 3. Usar DAO para actualizar el diagnóstico
-        $this->diagnosticDAO->updateDiagnostic($diagnostic, $validated);
+
+        $active = $request->has('active') ? 1 : 0;
+
+        // Actualizar diagnóstico usando SP
+        $updated = $this->diagnosticoModel->actualizarDiagnostico(
+            $id,
+            $validated['title'],
+            $validated['description'] ?? null,
+            $validated['subject_area'],
+            $validated['difficulty_level'],
+            $validated['time_limit_minutes'] ?? null,
+            $validated['passing_score'],
+            $active
+        );
+
+        if (!$updated) {
+            return redirect()->back()
+                ->with('error', 'Error al actualizar el diagnóstico')
+                ->withInput();
+        }
 
         return redirect()->route('admin.diagnostics.index')
             ->with('success', 'Diagnóstico actualizado exitosamente.');
     }
 
-    public function destroy(Diagnostic $diagnostic)
+    /**
+     * Eliminar diagnóstico
+     */
+    public function destroy($id)
     {
-        // 4. Usar DAO para eliminar el diagnóstico
-        $this->diagnosticDAO->deleteDiagnostic($diagnostic);
+        // Eliminar diagnóstico usando SP
+        $deleted = $this->diagnosticoModel->eliminarDiagnostico($id);
+
+        if (!$deleted) {
+            return redirect()->back()
+                ->with('error', 'Error al eliminar el diagnóstico');
+        }
 
         return redirect()->route('admin.diagnostics.index')
             ->with('success', 'Diagnóstico eliminado exitosamente.');
     }
 
-    // --- Gestión de preguntas (Questions) ---
+    // ==================== GESTIÓN DE PREGUNTAS ====================
 
-    public function questionsIndex(Diagnostic $diagnostic)
+    /**
+     * Listar preguntas de un diagnóstico
+     */
+    public function questionsIndex($diagnosticId)
     {
-        // 5. Usar DAO para obtener las preguntas del diagnóstico
-        $questions = $this->diagnosticDAO->getQuestionsForDiagnostic($diagnostic);
-        
-        return view('admin.diagnostics.questions.index', compact('diagnostic', 'questions'));
-    }
+        // Obtener diagnóstico con preguntas usando SP
+        $data = $this->diagnosticoModel->obtenerDiagnosticoCompleto($diagnosticId);
 
-    public function questionsCreate(Diagnostic $diagnostic)
-    {
-        return view('admin.diagnostics.questions.create', compact('diagnostic'));
-    }
-
-    public function questionsStore(Request $request, Diagnostic $diagnostic)
-    {
-        $validated = $request->validate([
-            'question' => 'required|string',
-            'options' => 'required|array|min:2|max:5',
-            'options.*' => 'required|string',
-            'correct_answer' => 'required|integer|min:0',
-            'difficulty_level' => 'required|integer|min:1|max:3',
-            'topic' => 'required|string|max:255',
-        ]);
-
-        // Validar que la respuesta correcta esté dentro del rango de opciones
-        if ($validated['correct_answer'] >= count($validated['options'])) {
-            return back()->withErrors(['correct_answer' => 'La respuesta correcta debe estar dentro del rango de opciones.']);
+        if (!$data) {
+            abort(404, 'Diagnóstico no encontrado');
         }
 
-        // 6. Usar DAO para crear la pregunta
-        $this->diagnosticDAO->createQuestion($diagnostic, [
-            'question' => $validated['question'],
-            'options' => array_values($validated['options']), // Reindexar
-            'correct_answer' => $validated['correct_answer'],
-            'difficulty_level' => $validated['difficulty_level'],
-            'topic' => $validated['topic'],
+        return view('admin.diagnostics.questions.index', [
+            'diagnostic' => $data['diagnostico'],
+            'questions' => $data['preguntas']
+        ]);
+    }
+
+    /**
+     * Mostrar formulario para crear pregunta
+     */
+    public function questionsCreate($diagnosticId)
+    {
+        // Verificar que el diagnóstico existe
+        $diagnostic = $this->diagnosticoModel->obtenerDiagnostico($diagnosticId);
+
+        if (!$diagnostic) {
+            abort(404, 'Diagnóstico no encontrado');
+        }
+
+        return view('admin.diagnostics.questions.create', [
+            'diagnostic' => $diagnostic
+        ]);
+    }
+
+    /**
+     * Crear nueva pregunta
+     */
+    public function questionsStore(Request $request, $diagnosticId)
+    {
+        $validated = $request->validate([
+            'question_text' => 'required|string',
+            'question_type' => 'required|in:multiple_choice,true_false,open_ended',
+            'options' => 'nullable|array|min:2|max:5',
+            'options.*' => 'required|string',
+            'correct_answer' => 'required|string',
+            'points' => 'nullable|numeric|min:0.5|max:10',
         ]);
 
-        // 7. Usar DAO para actualizar el conteo total
-        $this->diagnosticDAO->syncTotalQuestions($diagnostic);
+        // Validar que la respuesta correcta esté en las opciones (para multiple_choice)
+        if ($validated['question_type'] === 'multiple_choice' && isset($validated['options'])) {
+            if (!\in_array($validated['correct_answer'], $validated['options'])) {
+                return redirect()->back()
+                    ->withErrors(['correct_answer' => 'La respuesta correcta debe estar entre las opciones'])
+                    ->withInput();
+            }
+        }
 
-        return redirect()->route('admin.diagnostics.questions.index', $diagnostic)
+        // Crear pregunta usando SP
+        $questionId = $this->diagnosticoModel->crearPregunta(
+            $diagnosticId,
+            $validated['question_text'],
+            $validated['question_type'],
+            isset($validated['options']) ? \json_encode($validated['options']) : null,
+            $validated['correct_answer'],
+            $validated['points'] ?? 1.0
+        );
+
+        if (!$questionId) {
+            return redirect()->back()
+                ->with('error', 'Error al crear la pregunta')
+                ->withInput();
+        }
+
+        return redirect()->route('admin.diagnostics.questions.index', $diagnosticId)
             ->with('success', 'Pregunta agregada exitosamente.');
     }
 
-    public function questionsEdit(Diagnostic $diagnostic, DiagnosticQuestion $question)
+    /**
+     * Mostrar formulario de edición de pregunta
+     */
+    public function questionsEdit($diagnosticId, $questionId)
     {
-        return view('admin.diagnostics.questions.edit', compact('diagnostic', 'question'));
-    }
+        // Obtener diagnóstico
+        $diagnostic = $this->diagnosticoModel->obtenerDiagnostico($diagnosticId);
 
-    public function questionsUpdate(Request $request, Diagnostic $diagnostic, DiagnosticQuestion $question)
-    {
-        $validated = $request->validate([
-            'question' => 'required|string',
-            'options' => 'required|array|min:2|max:5',
-            'options.*' => 'required|string',
-            'correct_answer' => 'required|integer|min:0',
-            'difficulty_level' => 'required|integer|min:1|max:3',
-            'topic' => 'required|string|max:255',
-        ]);
-
-        if ($validated['correct_answer'] >= count($validated['options'])) {
-            return back()->withErrors(['correct_answer' => 'La respuesta correcta debe estar dentro del rango de opciones.']);
+        if (!$diagnostic) {
+            abort(404, 'Diagnóstico no encontrado');
         }
 
-        // 8. Usar DAO para actualizar la pregunta
-        $this->diagnosticDAO->updateQuestion($question, [
-            'question' => $validated['question'],
-            'options' => array_values($validated['options']),
-            'correct_answer' => $validated['correct_answer'],
-            'difficulty_level' => $validated['difficulty_level'],
-            'topic' => $validated['topic'],
+        // Obtener pregunta
+        $question = $this->diagnosticoModel->obtenerPregunta($questionId);
+
+        if (!$question) {
+            abort(404, 'Pregunta no encontrada');
+        }
+
+        return view('admin.diagnostics.questions.edit', [
+            'diagnostic' => $diagnostic,
+            'question' => $question
+        ]);
+    }
+
+    /**
+     * Actualizar pregunta
+     */
+    public function questionsUpdate(Request $request, $diagnosticId, $questionId)
+    {
+        $validated = $request->validate([
+            'question_text' => 'required|string',
+            'question_type' => 'required|in:multiple_choice,true_false,open_ended',
+            'options' => 'nullable|array|min:2|max:5',
+            'options.*' => 'required|string',
+            'correct_answer' => 'required|string',
+            'points' => 'nullable|numeric|min:0.5|max:10',
         ]);
 
-        return redirect()->route('admin.diagnostics.questions.index', $diagnostic)
+        // Validar respuesta correcta
+        if ($validated['question_type'] === 'multiple_choice' && isset($validated['options'])) {
+            if (!\in_array($validated['correct_answer'], $validated['options'])) {
+                return redirect()->back()
+                    ->withErrors(['correct_answer' => 'La respuesta correcta debe estar entre las opciones'])
+                    ->withInput();
+            }
+        }
+
+        // Actualizar pregunta usando SP
+        $updated = $this->diagnosticoModel->actualizarPregunta(
+            $questionId,
+            $validated['question_text'],
+            $validated['question_type'],
+            isset($validated['options']) ? \json_encode($validated['options']) : null,
+            $validated['correct_answer'],
+            $validated['points'] ?? 1.0
+        );
+
+        if (!$updated) {
+            return redirect()->back()
+                ->with('error', 'Error al actualizar la pregunta')
+                ->withInput();
+        }
+
+        return redirect()->route('admin.diagnostics.questions.index', $diagnosticId)
             ->with('success', 'Pregunta actualizada exitosamente.');
     }
 
-    public function questionsDestroy(Diagnostic $diagnostic, DiagnosticQuestion $question)
+    /**
+     * Eliminar pregunta
+     */
+    public function questionsDestroy($diagnosticId, $questionId)
     {
-        // 9. Usar DAO para eliminar la pregunta
-        $this->diagnosticDAO->deleteQuestion($question);
-        
-        // 10. Usar DAO para actualizar el conteo total
-        $this->diagnosticDAO->syncTotalQuestions($diagnostic);
+        // Eliminar pregunta usando SP
+        $deleted = $this->diagnosticoModel->eliminarPregunta($questionId);
 
-        return redirect()->route('admin.diagnostics.questions.index', $diagnostic)
+        if (!$deleted) {
+            return redirect()->back()
+                ->with('error', 'Error al eliminar la pregunta');
+        }
+
+        return redirect()->route('admin.diagnostics.questions.index', $diagnosticId)
             ->with('success', 'Pregunta eliminada exitosamente.');
     }
 }

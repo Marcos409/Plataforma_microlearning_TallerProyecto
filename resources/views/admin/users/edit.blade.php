@@ -23,7 +23,7 @@
                         </div>
                     @endif
 
-                    <form method="POST" action="{{ route('admin.users.update', $user) }}">
+                    <form method="POST" action="{{ route('admin.users.update', $user->id) }}">
                         @csrf
                         @method('PUT')
                         
@@ -206,7 +206,7 @@
                                         </a>
                                     </div>
                                     <div>
-                                        <a href="{{ route('admin.users.show', $user) }}" class="btn btn-info btn-lg">
+                                        <a href="{{ route('admin.users.show', $user->id) }}" class="btn btn-info btn-lg">
                                             <i class="fas fa-eye"></i> Ver Perfil
                                         </a>
                                     </div>

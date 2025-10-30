@@ -8,7 +8,7 @@
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h4>Perfil de Usuario: {{ $user->name }}</h4>
                     <div>
-                        <a href="{{ route('admin.users.edit', $user) }}" class="btn btn-primary">
+                        <a href="{{ route('admin.users.edit', $user->id) }}" class="btn btn-primary">
                             <i class="fas fa-edit"></i> Editar
                         </a>
                         <a href="{{ route('admin.users.index') }}" class="btn btn-outline-secondary">
@@ -203,18 +203,18 @@
                             <h5 class="text-primary mb-3">Acciones Administrativas</h5>
                             
                             <div class="d-flex justify-content-start">
-                                <a href="{{ route('admin.users.edit', $user) }}" class="btn btn-primary me-2">
+                                <a href="{{ route('admin.users.edit', $user->id) }}" class="btn btn-primary me-2">
                                     <i class="fas fa-edit"></i> Editar Usuario
                                 </a>
                                 
                                 @if($user->role && $user->role->name === 'Estudiante')
-                                <a href="{{ route('admin.students.show', $user) }}" class="btn btn-info me-2">
+                                <a href="{{ route('admin.students.show', $user->id) }}" class="btn btn-info me-2">
                                     <i class="fas fa-graduation-cap"></i> Ver como Estudiante
                                 </a>
                                 @endif
                                 
                                 @if($user->id !== 1 && $user->id !== auth()->id())
-                                <form method="POST" action="{{ route('admin.users.destroy', $user) }}" 
+                                <form method="POST" action="{{ route('admin.users.destroy', $user->id) }}" 
                                       style="display: inline;" 
                                       onsubmit="return confirm('¿Estás seguro de eliminar este usuario?')">
                                     @csrf

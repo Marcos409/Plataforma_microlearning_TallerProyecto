@@ -3,6 +3,7 @@
 namespace App\Contracts;
 
 use Illuminate\Support\Collection;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 interface UserDAOInterface
 {
@@ -110,4 +111,34 @@ interface UserDAOInterface
      * Obtener estudiantes con filtros
      */
     public function getStudentsWithFilters(?string $search, ?string $status): Collection;
+
+    /**
+     * Obtener usuarios con filtros para administración (con paginación)
+     */
+    public function getUsersWithFilters(array $filters = [], int $perPage = 15): LengthAwarePaginator;
+    
+    /**
+     * Obtener usuarios sin rol asignado (con paginación)
+     */
+    public function getUsersPendingRole(): LengthAwarePaginator;
+    
+    /**
+     * Actualizar roles de múltiples usuarios
+     */
+    public function bulkUpdateRoles(array $userIds, int $roleId): int;
+    
+    /**
+     * Obtener usuarios para exportar (sin paginación)
+     */
+    public function getUsersForExport(array $filters = []): Collection;
+    
+    /**
+     * Obtener estudiantes por carrera
+     */
+    public function getStudentsByCareer(string $career): Collection;
+    
+    /**
+     * Obtener cantidad de usuarios pendientes
+     */
+    public function getPendingUsersCount(): int;
 }
