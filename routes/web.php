@@ -81,7 +81,10 @@ Route::middleware(['auth'])->group(function () {
         Route::prefix('recommendations')->name('recommendations.')->group(function () {
             Route::get('/', [StudentContentController::class, 'recommendations'])->name('index');
             Route::post('/{id}/mark-viewed', [StudentContentController::class, 'markRecommendationViewed'])->name('mark-viewed');
+            Route::get('/ml-dashboard', [RecommendationController::class, 'dashboard'])->name('ml.dashboard');
+            Route::post('/ml/update-profile', [RecommendationController::class, 'updateProfile'])->name('ml.update-profile');
         });
+
     });
 
     // ========================================

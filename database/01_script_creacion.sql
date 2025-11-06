@@ -318,4 +318,37 @@ CREATE TABLE IF NOT EXISTS `ml_analysis` (
     KEY `idx_ml_created` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+USE `bd_microlearning_uc`;
+
+CREATE TABLE IF NOT EXISTS `risk_predictions` (
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `user_id` BIGINT UNSIGNED NOT NULL,
+    `nivel_riesgo` VARCHAR(50) NOT NULL, -- bajo, medio, alto
+    `tiene_riesgo` BOOLEAN NOT NULL DEFAULT 0,
+    `probabilidad_riesgo` DECIMAL(5, 4) NOT NULL,
+    `severidad` VARCHAR(50) NOT NULL,
+    `actividades_refuerzo` JSON NULL,
+    `predicted_at` TIMESTAMP NOT NULL,
+    `created_at` TIMESTAMP NULL,
+    `updated_at` TIMESTAMP NULL,
+    PRIMARY KEY (`id`),
+    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Ejecutar este script después de risk_predictions
+CREATE TABLE IF NOT EXISTS `risk_alerts` (
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `user_id` BIGINT UNSIGNED NOT NULL,
+    `risk_prediction_id` BIGINT UNSIGNED NULL,
+    `description` TEXT NULL,
+    `severity` ENUM('bajo', 'medio', 'alto') NOT NULL DEFAULT 'bajo',
+    `is_resolved` BOOLEAN NOT NULL DEFAULT 0,
+    `created_at` TIMESTAMP NULL,
+    `updated_at` TIMESTAMP NULL,
+    PRIMARY KEY (`id`),
+    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`risk_prediction_id`) REFERENCES `risk_predictions`(`id`) ON DELETE SET NULL,
+    KEY `idx_risk_alerts_user_resolved_severity` (`user_id`, `is_resolved`, `severity`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 select * from roles;
