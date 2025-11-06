@@ -158,7 +158,7 @@
                                             <label class="form-label">Fecha de Registro</label>
                                             <input type="text" 
                                                    class="form-control" 
-                                                   value="{{ $student->created_at ? $student->created_at->format('d/m/Y H:i') : 'N/A' }}" 
+                                                   value="{{ $student->created_at ? \Carbon\Carbon::parse($student->created_at)->format('d/m/Y H:i') : 'N/A' }}" 
                                                    readonly>
                                         </div>
                                     </div>
@@ -167,7 +167,7 @@
                                             <label class="form-label">Última Actualización</label>
                                             <input type="text" 
                                                    class="form-control" 
-                                                   value="{{ $student->updated_at ? $student->updated_at->format('d/m/Y H:i') : 'N/A' }}" 
+                                                   value="{{ $student->updated_at ? \Carbon\Carbon::parse($student->updated_at)->format('d/m/Y H:i') : 'N/A' }}" 
                                                    readonly>
                                         </div>
                                     </div>

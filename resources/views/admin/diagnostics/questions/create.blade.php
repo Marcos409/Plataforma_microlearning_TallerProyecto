@@ -15,7 +15,7 @@
                         <strong>Materia:</strong> {{ $diagnostic->subject_area }}
                     </p>
                 </div>
-                <a href="{{ route('admin.diagnostics.questions.index', $diagnostic) }}" class="btn btn-outline-secondary">
+                <a href="{{ route('admin.diagnostics.questions.index', $diagnostic->id) }}" class="btn btn-outline-secondary">
                     <i class="fas fa-arrow-left me-1"></i>Volver a Preguntas
                 </a>
             </div>
@@ -26,7 +26,7 @@
                     <h5 class="mb-0"><i class="fas fa-edit me-2"></i>Datos de la Pregunta</h5>
                 </div>
                 <div class="card-body">
-                    <form action="{{ route('admin.diagnostics.questions.store', $diagnostic) }}" 
+                    <form action="{{ route('admin.diagnostics.questions.store', $diagnostic->id) }}" 
                           method="POST" 
                           id="questionForm">
                         @csrf
@@ -36,13 +36,13 @@
                             <label for="question" class="form-label fw-bold">
                                 <i class="fas fa-question me-1"></i>Pregunta <span class="text-danger">*</span>
                             </label>
-                            <textarea class="form-control @error('question') is-invalid @enderror" 
-                                      id="question" 
-                                      name="question" 
+                            <textarea class="form-control @error('question_text') is-invalid @enderror" 
+                                      id="question_text" 
+                                      name="question_text" 
                                       rows="3" 
                                       placeholder="Escribe la pregunta aquí..."
-                                      required>{{ old('question') }}</textarea>
-                            @error('question')
+                                      required>{{ old('question_text') }}</textarea>
+                            @error('question_text')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                             <small class="text-muted">Escribe una pregunta clara y precisa</small>
@@ -157,7 +157,7 @@
 
                         <!-- Botones -->
                         <div class="d-flex justify-content-between pt-3 border-top">
-                            <a href="{{ route('admin.diagnostics.questions.index', $diagnostic) }}" 
+                            <a href="{{ route('admin.diagnostics.questions.index', $diagnostic->id) }}" 
                                class="btn btn-secondary">
                                 <i class="fas fa-times me-1"></i>Cancelar
                             </a>

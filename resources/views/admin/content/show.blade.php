@@ -124,11 +124,11 @@
                             </div>
                             <div class="mb-3">
                                 <small class="text-muted">Creado</small>
-                                <p class="mb-0">{{ $content->created_at->format('d/m/Y') }}</p>
+                                <p class="mb-0">{{ \Carbon\Carbon::parse($content->created_at)->format('d/m/Y H:i') }}</p>
                             </div>
                             <div>
                                 <small class="text-muted">Última Actualización</small>
-                                <p class="mb-0">{{ $content->updated_at->format('d/m/Y H:i') }}</p>
+                                <p class="mb-0">{{ \Carbon\Carbon::parse($content->updated_at)->format('d/m/Y H:i') }}</p>
                             </div>
                         </div>
                     </div>

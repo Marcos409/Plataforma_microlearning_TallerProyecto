@@ -7,6 +7,7 @@ use App\DataAccessModels\AnalisisModel;
 use App\DataAccessModels\UsuarioModel;
 use App\Services\MLPredictionService;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 class MLAnalysisController extends Controller
 {
@@ -139,6 +140,27 @@ class MLAnalysisController extends Controller
         $analysesData = $this->analisisModel->listarAnalisis($page, $perPage);
         $totalAnalyses = $this->analisisModel->contarAnalisis();
         
+        if (is_array($analysesData) && !empty($analysesData)) {
+    
+            $analysesData = collect($analysesData)->map(function ($item) {
+                
+                // 1. Arreglo para la fecha (Call to a member function format() on string)
+                if (isset($item['created_at']) && is_string($item['created_at'])) {
+                    $item['created_at'] = Carbon::parse($item['created_at']);
+                }
+                
+                // 2. 💡 CORRECCIÓN FINAL: Decodificar JSON para 'metricas'
+                // Esto convierte la cadena JSON en un array asociativo PHP
+                if (isset($item['metricas']) && is_string($item['metricas'])) {
+                    $item['metricas'] = json_decode($item['metricas'], true); 
+                }
+        
+                // Convierte el array modificado (con Carbon y JSON decodificado) a stdClass
+                return (object) $item;
+            });
+        } else {
+            $analysesData = collect([]);
+        }
         // Convertir a collection para paginación
         $analyses = new \Illuminate\Pagination\LengthAwarePaginator(
             $analysesData,

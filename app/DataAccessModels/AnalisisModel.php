@@ -5,18 +5,33 @@ namespace App\DataAccessModels;
 
 class AnalisisModel extends BaseModel 
 {
+    
+    // ==========================================
+    // MÉTODOS NUEVOS PARA ML ANALYSIS
+    // ==========================================
+    
+    /**
+     * Analizar rendimiento del estudiante
+     * @param int $userId
+     * @return array|null
+     */
     public function analizarRendimiento($userId) 
     {
         return $this->callProcedureSingle('sp_analizar_rendimiento', [$userId]);
     }
-
+    
+    /**
+     * Predecir riesgo académico
+     * @param int $userId
+     * @return array|null
+     */
     public function predecirRiesgo($userId) 
     {
         return $this->callProcedureSingle('sp_predecir_riesgo', [$userId]);
     }
-
+    
     // ==========================================
-    // MÉTODOS NUEVOS PARA ML ANALYSIS
+    // CRUD PARA ML_ANALYSIS - VÍA STORED PROCEDURES
     // ==========================================
     
     /**
@@ -26,30 +41,18 @@ class AnalisisModel extends BaseModel
      */
     public function crearAnalisis($data)
     {
-        try {
-            $stmt = $this->pdo->prepare("
-                INSERT INTO ml_analysis (
-                    user_id, diagnostico, ruta_aprendizaje, nivel_riesgo,
-                    metricas, recomendaciones, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
-            ");
-            
-            $stmt->execute([
-                $data['user_id'],
-                $data['diagnostico'] ?? null,
-                $data['ruta_aprendizaje'] ?? null,
-                $data['nivel_riesgo'] ?? null,
-                json_encode($data['metricas'] ?? []),
-                json_encode($data['recomendaciones'] ?? [])
-            ]);
-            
-            return $this->pdo->lastInsertId();
-        } catch (\PDOException $e) {
-            error_log("Error en crearAnalisis: " . $e->getMessage());
-            return false;
-        }
+        $result = $this->callProcedureSingle('sp_crear_analisis', [
+            $data['user_id'],
+            $data['diagnostico'] ?? null,
+            $data['ruta_aprendizaje'] ?? null,
+            $data['nivel_riesgo'] ?? null,
+            json_encode($data['metricas'] ?? []),
+            json_encode($data['recomendaciones'] ?? [])
+        ]);
+        
+        return $result ? (int) $result['id'] : false;
     }
-
+    
     /**
      * Obtener análisis por ID
      * @param int $id
@@ -57,35 +60,17 @@ class AnalisisModel extends BaseModel
      */
     public function obtenerAnalisis($id)
     {
-        try {
-            $stmt = $this->pdo->prepare("
-                SELECT 
-                    ma.id, ma.user_id, ma.diagnostico, ma.ruta_aprendizaje,
-                    ma.nivel_riesgo, ma.metricas, ma.recomendaciones,
-                    ma.created_at, ma.updated_at,
-                    u.name as student_name, u.email as student_email,
-                    u.career, u.semester
-                FROM ml_analysis ma
-                INNER JOIN users u ON ma.user_id = u.id
-                WHERE ma.id = ?
-            ");
-            
-            $stmt->execute([$id]);
-            $result = $stmt->fetch(\PDO::FETCH_ASSOC);
-            
-            if ($result) {
-                // Decodificar JSON
-                $result['metricas'] = json_decode($result['metricas'], true);
-                $result['recomendaciones'] = json_decode($result['recomendaciones'], true);
-            }
-            
-            return $result;
-        } catch (\PDOException $e) {
-            error_log("Error en obtenerAnalisis: " . $e->getMessage());
-            return null;
+        $result = $this->callProcedureSingle('sp_obtener_analisis_ml', [$id]);
+        
+        if ($result) {
+            // Decodificar JSON
+            $result['metricas'] = json_decode($result['metricas'], true) ?? [];
+            $result['recomendaciones'] = json_decode($result['recomendaciones'], true) ?? [];
         }
+        
+        return $result;
     }
-
+    
     /**
      * Listar análisis con paginación
      * @param int $page
@@ -94,48 +79,19 @@ class AnalisisModel extends BaseModel
      */
     public function listarAnalisis($page = 1, $perPage = 20)
     {
-        try {
-            $offset = ($page - 1) * $perPage;
-            
-            $stmt = $this->pdo->prepare("
-                SELECT 
-                    ma.id, ma.user_id, ma.diagnostico, ma.ruta_aprendizaje,
-                    ma.nivel_riesgo, ma.created_at,
-                    u.name as student_name, u.email as student_email,
-                    u.career
-                FROM ml_analysis ma
-                INNER JOIN users u ON ma.user_id = u.id
-                ORDER BY ma.created_at DESC
-                LIMIT ? OFFSET ?
-            ");
-            
-            $stmt->bindValue(1, $perPage, \PDO::PARAM_INT);
-            $stmt->bindValue(2, $offset, \PDO::PARAM_INT);
-            $stmt->execute();
-            
-            return $stmt->fetchAll(\PDO::FETCH_ASSOC);
-        } catch (\PDOException $e) {
-            error_log("Error en listarAnalisis: " . $e->getMessage());
-            return [];
-        }
+        return $this->callProcedureMultiple('sp_listar_analisis_ml', [$page, $perPage]);
     }
-
+    
     /**
      * Contar total de análisis
      * @return int
      */
     public function contarAnalisis()
     {
-        try {
-            $stmt = $this->pdo->query("SELECT COUNT(*) as total FROM ml_analysis");
-            $result = $stmt->fetch(\PDO::FETCH_ASSOC);
-            return $result ? (int) $result['total'] : 0;
-        } catch (\PDOException $e) {
-            error_log("Error en contarAnalisis: " . $e->getMessage());
-            return 0;
-        }
+        $result = $this->callProcedureSingle('sp_contar_analisis_ml');
+        return $result ? (int) $result['total'] : 0;
     }
-
+    
     /**
      * Obtener análisis más reciente de un usuario
      * @param int $userId
@@ -143,32 +99,16 @@ class AnalisisModel extends BaseModel
      */
     public function obtenerAnalisisReciente($userId)
     {
-        try {
-            $stmt = $this->pdo->prepare("
-                SELECT 
-                    id, user_id, diagnostico, ruta_aprendizaje, nivel_riesgo,
-                    metricas, recomendaciones, created_at
-                FROM ml_analysis
-                WHERE user_id = ?
-                ORDER BY created_at DESC
-                LIMIT 1
-            ");
-            
-            $stmt->execute([$userId]);
-            $result = $stmt->fetch(\PDO::FETCH_ASSOC);
-            
-            if ($result) {
-                $result['metricas'] = json_decode($result['metricas'], true);
-                $result['recomendaciones'] = json_decode($result['recomendaciones'], true);
-            }
-            
-            return $result;
-        } catch (\PDOException $e) {
-            error_log("Error en obtenerAnalisisReciente: " . $e->getMessage());
-            return null;
+        $result = $this->callProcedureSingle('sp_obtener_analisis_reciente_ml', [$userId]);
+        
+        if ($result) {
+            $result['metricas'] = json_decode($result['metricas'], true) ?? [];
+            $result['recomendaciones'] = json_decode($result['recomendaciones'], true) ?? [];
         }
+        
+        return $result;
     }
-
+    
     /**
      * Obtener historial de análisis de un usuario
      * @param int $userId
@@ -176,58 +116,28 @@ class AnalisisModel extends BaseModel
      */
     public function obtenerHistorialUsuario($userId)
     {
-        try {
-            $stmt = $this->pdo->prepare("
-                SELECT 
-                    id, diagnostico, ruta_aprendizaje, nivel_riesgo,
-                    created_at
-                FROM ml_analysis
-                WHERE user_id = ?
-                ORDER BY created_at DESC
-            ");
-            
-            $stmt->execute([$userId]);
-            return $stmt->fetchAll(\PDO::FETCH_ASSOC);
-        } catch (\PDOException $e) {
-            error_log("Error en obtenerHistorialUsuario: " . $e->getMessage());
-            return [];
-        }
+        return $this->callProcedureMultiple('sp_obtener_historial_usuario_ml', [$userId]);
     }
-
+    
     /**
      * Obtener estadísticas de análisis
      * @return array
      */
     public function obtenerEstadisticas()
     {
-        try {
-            $stmt = $this->pdo->query("
-                SELECT 
-                    COUNT(*) as total,
-                    SUM(CASE WHEN diagnostico = 'basico' THEN 1 ELSE 0 END) as diagnostico_basico,
-                    SUM(CASE WHEN diagnostico = 'intermedio' THEN 1 ELSE 0 END) as diagnostico_intermedio,
-                    SUM(CASE WHEN diagnostico = 'avanzado' THEN 1 ELSE 0 END) as diagnostico_avanzado,
-                    SUM(CASE WHEN nivel_riesgo = 'alto' THEN 1 ELSE 0 END) as riesgo_alto,
-                    SUM(CASE WHEN nivel_riesgo = 'medio' THEN 1 ELSE 0 END) as riesgo_medio,
-                    SUM(CASE WHEN nivel_riesgo = 'bajo' THEN 1 ELSE 0 END) as riesgo_bajo
-                FROM ml_analysis
-            ");
-            
-            return $stmt->fetch(\PDO::FETCH_ASSOC);
-        } catch (\PDOException $e) {
-            error_log("Error en obtenerEstadisticas: " . $e->getMessage());
-            return [
-                'total' => 0,
-                'diagnostico_basico' => 0,
-                'diagnostico_intermedio' => 0,
-                'diagnostico_avanzado' => 0,
-                'riesgo_alto' => 0,
-                'riesgo_medio' => 0,
-                'riesgo_bajo' => 0
-            ];
-        }
+        $result = $this->callProcedureSingle('sp_obtener_estadisticas_ml');
+        
+        return $result ?: [
+            'total' => 0,
+            'diagnostico_basico' => 0,
+            'diagnostico_intermedio' => 0,
+            'diagnostico_avanzado' => 0,
+            'riesgo_alto' => 0,
+            'riesgo_medio' => 0,
+            'riesgo_bajo' => 0
+        ];
     }
-
+    
     /**
      * Contar análisis por nivel de diagnóstico
      * @param string $nivel
@@ -235,22 +145,10 @@ class AnalisisModel extends BaseModel
      */
     public function contarPorDiagnostico($nivel)
     {
-        try {
-            $stmt = $this->pdo->prepare("
-                SELECT COUNT(*) as total
-                FROM ml_analysis
-                WHERE diagnostico = ?
-            ");
-            
-            $stmt->execute([$nivel]);
-            $result = $stmt->fetch(\PDO::FETCH_ASSOC);
-            return $result ? (int) $result['total'] : 0;
-        } catch (\PDOException $e) {
-            error_log("Error en contarPorDiagnostico: " . $e->getMessage());
-            return 0;
-        }
+        $result = $this->callProcedureSingle('sp_contar_por_diagnostico_ml', [$nivel]);
+        return $result ? (int) $result['total'] : 0;
     }
-
+    
     /**
      * Contar análisis por nivel de riesgo
      * @param string $nivel
@@ -258,22 +156,10 @@ class AnalisisModel extends BaseModel
      */
     public function contarPorRiesgo($nivel)
     {
-        try {
-            $stmt = $this->pdo->prepare("
-                SELECT COUNT(*) as total
-                FROM ml_analysis
-                WHERE nivel_riesgo = ?
-            ");
-            
-            $stmt->execute([$nivel]);
-            $result = $stmt->fetch(\PDO::FETCH_ASSOC);
-            return $result ? (int) $result['total'] : 0;
-        } catch (\PDOException $e) {
-            error_log("Error en contarPorRiesgo: " . $e->getMessage());
-            return 0;
-        }
+        $result = $this->callProcedureSingle('sp_contar_por_riesgo_ml', [$nivel]);
+        return $result ? (int) $result['total'] : 0;
     }
-
+    
     /**
      * Actualizar un análisis existente
      * @param int $id
@@ -282,32 +168,18 @@ class AnalisisModel extends BaseModel
      */
     public function actualizarAnalisis($id, $data)
     {
-        try {
-            $stmt = $this->pdo->prepare("
-                UPDATE ml_analysis
-                SET diagnostico = ?,
-                    ruta_aprendizaje = ?,
-                    nivel_riesgo = ?,
-                    metricas = ?,
-                    recomendaciones = ?,
-                    updated_at = NOW()
-                WHERE id = ?
-            ");
-            
-            return $stmt->execute([
-                $data['diagnostico'] ?? null,
-                $data['ruta_aprendizaje'] ?? null,
-                $data['nivel_riesgo'] ?? null,
-                json_encode($data['metricas'] ?? []),
-                json_encode($data['recomendaciones'] ?? []),
-                $id
-            ]);
-        } catch (\PDOException $e) {
-            error_log("Error en actualizarAnalisis: " . $e->getMessage());
-            return false;
-        }
+        $result = $this->callProcedureSingle('sp_actualizar_analisis_ml', [
+            $id,
+            $data['diagnostico'] ?? null,
+            $data['ruta_aprendizaje'] ?? null,
+            $data['nivel_riesgo'] ?? null,
+            json_encode($data['metricas'] ?? []),
+            json_encode($data['recomendaciones'] ?? [])
+        ]);
+        
+        return $result && (int) $result['affected_rows'] > 0;
     }
-
+    
     /**
      * Eliminar análisis antiguos (más de X días)
      * @param int $days
@@ -315,44 +187,66 @@ class AnalisisModel extends BaseModel
      */
     public function eliminarAntiguos($days = 90)
     {
-        try {
-            $stmt = $this->pdo->prepare("
-                DELETE FROM ml_analysis
-                WHERE created_at < DATE_SUB(NOW(), INTERVAL ? DAY)
-            ");
-            
-            $stmt->execute([$days]);
-            return $stmt->rowCount();
-        } catch (\PDOException $e) {
-            error_log("Error en eliminarAntiguos: " . $e->getMessage());
-            return 0;
-        }
+        $result = $this->callProcedureSingle('sp_eliminar_antiguos_ml', [$days]);
+        return $result ? (int) $result['deleted_rows'] : 0;
     }
-
+    
     /**
      * Obtener estudiantes sin análisis reciente (últimos 30 días)
      * @return array
      */
     public function obtenerEstudiantesSinAnalisis()
     {
-        try {
-            $stmt = $this->pdo->query("
-                SELECT u.id, u.name, u.email, u.career
-                FROM users u
-                WHERE u.role_id = 3 
-                AND u.active = 1
-                AND u.id NOT IN (
-                    SELECT user_id 
-                    FROM ml_analysis 
-                    WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-                )
-                ORDER BY u.name
-            ");
-            
-            return $stmt->fetchAll(\PDO::FETCH_ASSOC);
-        } catch (\PDOException $e) {
-            error_log("Error en obtenerEstudiantesSinAnalisis: " . $e->getMessage());
-            return [];
-        }
+        return $this->callProcedureMultiple('sp_obtener_estudiantes_sin_analisis_ml');
+    }
+    
+    /**
+     * Buscar análisis por criterios múltiples
+     * @param array $filters
+     * @return array
+     */
+    public function buscarAnalisis($filters = [])
+    {
+        return $this->callProcedureMultiple('sp_buscar_analisis_ml', [
+            $filters['user_id'] ?? null,
+            $filters['diagnostico'] ?? null,
+            $filters['nivel_riesgo'] ?? null,
+            $filters['fecha_desde'] ?? null,
+            $filters['fecha_hasta'] ?? null
+        ]);
+    }
+    
+    /**
+     * Eliminar un análisis específico
+     * @param int $id
+     * @return bool
+     */
+    public function eliminarAnalisis($id)
+    {
+        $result = $this->callProcedureSingle('sp_eliminar_analisis_ml', [$id]);
+        return $result && (int) $result['deleted_rows'] > 0;
+    }
+    
+    /**
+     * Obtener análisis por rango de fechas
+     * @param string $fechaInicio (formato: Y-m-d)
+     * @param string $fechaFin (formato: Y-m-d)
+     * @return array
+     */
+    public function obtenerAnalisisPorFechas($fechaInicio, $fechaFin)
+    {
+        return $this->callProcedureMultiple('sp_obtener_analisis_por_fechas_ml', [
+            $fechaInicio,
+            $fechaFin
+        ]);
+    }
+    
+    /**
+     * Obtener todos los análisis con alto riesgo
+     * @return array
+     */
+    public function obtenerAnalisisAltoRiesgo()
+    {
+        return $this->callProcedureMultiple('sp_obtener_analisis_alto_riesgo_ml');
     }
 }

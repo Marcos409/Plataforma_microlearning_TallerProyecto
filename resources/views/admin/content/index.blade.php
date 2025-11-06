@@ -82,9 +82,9 @@
                             <tbody>
                                 @forelse($contents as $content)
                                 <tr>
-                                    <td>{{ $content->id }}</td>
+                                    <td>{{ $content->id}}</td>
                                     <td>
-                                        <strong>{{ $content->title }}</strong>
+                                        <strong>{{ $content->title}}</strong>
                                         @if($content->content_url)
                                             <br><small class="text-muted">
                                                 <i class="fas fa-link"></i> 

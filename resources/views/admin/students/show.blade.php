@@ -5,7 +5,7 @@
     <div class="d-flex justify-content-between align-items-center pt-3 pb-2 mb-3 border-bottom">
         <h1 class="h2">Detalle del Estudiante</h1>
         <div>
-            <a href="{{ route('admin.students.edit', $student) }}" class="btn btn-warning">
+            <a href="{{ route('admin.students.edit', $student->id) }}" class="btn btn-warning">
                 <i class="fas fa-edit"></i> Editar
             </a>
             <a href="{{ route('admin.students.index') }}" class="btn btn-secondary">
@@ -56,12 +56,24 @@
                     </div>
                     <div class="row mb-2">
                         <div class="col-sm-5"><strong>Registro:</strong></div>
-                        <div class="col-sm-7">{{ $student->created_at->format('d/m/Y H:i') }}</div>
+                        <div class="col-sm-7">
+                            {{ 
+                                $student->created_at 
+                                    ? \Carbon\Carbon::parse($student->created_at)->format('d/m/Y H:i') 
+                                    : 'N/A' 
+                            }}
+                        </div>
                     </div>
                     <div class="row">
                         <div class="col-sm-5"><strong>Última actividad:</strong></div>
                         <div class="col-sm-7">
-                            {{ $student->last_activity ? $student->last_activity->format('d/m/Y H:i') : 'Nunca' }}
+                            {{ 
+                                // Usamos isset() para verificar que la propiedad exista.
+                                // Si existe y tiene valor, la formateamos. Si no, mostramos 'Nunca'.
+                                (isset($student->last_activity) && $student->last_activity)
+                                    ? \Carbon\Carbon::parse($student->last_activity)->format('d/m/Y H:i') 
+                                    : 'Nunca' 
+                            }}
                         </div>
                     </div>
                 </div>
@@ -78,25 +90,34 @@
                     <div class="row">
                         <div class="col-md-3">
                             <div class="text-center">
-                                <div class="h3 text-primary">{{ number_format($student->getOverallProgress(), 1) }}%</div>
+                                <!-- CORRECCIÓN CLAVE: Acceder a la propiedad 'valor' en lugar de llamar al método -->
+                                <div class="h3 text-primary">
+                                    {{ number_format($student->stats->progreso_general->valor ?? 0, 1) }}%
+                                </div>
                                 <small class="text-muted">Progreso General</small>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="text-center">
-                                <div class="h3 text-success">{{ $student->getCompletedActivitiesCount() }}</div>
+                                <div class="h3 text-success">
+                                    {{ $student->stats->rutas->actividades_completadas ?? 0 }}
+                                </div>
                                 <small class="text-muted">Actividades Completadas</small>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="text-center">
-                                <div class="h3 text-info">{{ $student->getTotalTimeSpent() }}</div>
+                                <div class="h3 text-info">
+                                    {{ $student->stats->rutas->minutos_estudiados ?? 0 }}
+                                </div>
                                 <small class="text-muted">Minutos Estudiados</small>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="text-center">
-                                <div class="h3 text-warning">{{ $student->getPendingRecommendationsCount() }}</div>
+                                <div class="h3 text-warning">
+                                    {{ $student->stats->recomendaciones->pendientes ?? 0 }}
+                                </div>
                                 <small class="text-muted">Recomendaciones Pendientes</small>
                             </div>
                         </div>

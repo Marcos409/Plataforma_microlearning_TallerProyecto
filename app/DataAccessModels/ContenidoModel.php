@@ -5,6 +5,10 @@ namespace App\DataAccessModels;
 
 class ContenidoModel extends BaseModel 
 {
+    // ==========================================
+    // LISTAR Y FILTRAR CONTENIDOS
+    // ==========================================
+    
     /**
      * Listar contenidos con filtros opcionales
      * @param array $filters ['subject_area', 'type', 'difficulty_level', 'search']
@@ -23,7 +27,11 @@ class ContenidoModel extends BaseModel
     }
 
     /**
-     * Listar contenidos (método existente - mantener compatibilidad)
+     * Listar contenidos (método legacy - mantener compatibilidad)
+     * @param string|null $subjectArea
+     * @param string|null $difficultyLevel
+     * @param string|null $type
+     * @return array
      */
     public function listarContenidos($subjectArea = null, $difficultyLevel = null, $type = null) 
     {
@@ -33,7 +41,46 @@ class ContenidoModel extends BaseModel
     }
 
     /**
+     * Buscar contenidos por palabra clave
+     * @param string $keyword
+     * @return array
+     */
+    public function buscarContenidos($keyword)
+    {
+        return $this->callProcedureMultiple('sp_buscar_contenidos', [$keyword]);
+    }
+
+    /**
+     * Contenidos más vistos
+     * @param int $limit
+     * @return array
+     */
+    public function contenidosMasVistos($limit = 10) 
+    {
+        return $this->callProcedureMultiple('sp_contenidos_mas_vistos', [$limit]);
+    }
+
+    /**
+     * Obtener contenidos recomendados para un usuario
+     * @param int $userId
+     * @param int $limit
+     * @return array
+     */
+    public function obtenerContenidosRecomendados($userId, $limit = 5)
+    {
+        return $this->callProcedureMultiple('sp_contenidos_recomendados_usuario', 
+            [$userId, $limit]
+        );
+    }
+
+    // ==========================================
+    // CRUD BÁSICO
+    // ==========================================
+    
+    /**
      * Obtener un contenido por ID
+     * @param int $id
+     * @return array|null
      */
     public function obtenerContenido($id) 
     {
@@ -47,25 +94,20 @@ class ContenidoModel extends BaseModel
      */
     public function crearContenido($data)
     {
-        try {
-            $result = $this->callProcedureSingle('sp_crear_contenido', [
-                $data['title'],
-                $data['description'] ?? null,
-                $data['subject_area'],
-                $data['topic'] ?? null,
-                $data['type'],
-                $data['difficulty_level'],
-                $data['content_url'] ?? null,
-                $data['duration_minutes'] ?? null,
-                $data['tags'] ?? null,
-                $data['active'] ?? 1
-            ]);
+        $result = $this->callProcedureSingle('sp_crear_contenido', [
+            $data['title'],
+            $data['description'] ?? null,
+            $data['subject_area'],
+            $data['topic'] ?? null,
+            $data['type'],
+            $data['difficulty_level'],
+            $data['content_url'] ?? null,
+            $data['duration_minutes'] ?? null,
+            $data['tags'] ?? null,
+            $data['active'] ?? 1
+        ]);
 
-            return $result ? $result['id'] : false;
-        } catch (\Exception $e) {
-            error_log("Error en crearContenido: " . $e->getMessage());
-            return false;
-        }
+        return $result ? (int) $result['id'] : false;
     }
 
     /**
@@ -76,7 +118,7 @@ class ContenidoModel extends BaseModel
      */
     public function actualizarContenido($id, $data)
     {
-        return $this->callProcedureNoReturn('sp_actualizar_contenido', [
+        $result = $this->callProcedureSingle('sp_actualizar_contenido', [
             $id,
             $data['title'],
             $data['description'] ?? null,
@@ -89,18 +131,25 @@ class ContenidoModel extends BaseModel
             $data['tags'] ?? null,
             $data['active'] ?? 1
         ]);
+
+        return $result && isset($result['affected_rows']) && (int) $result['affected_rows'] > 0;
     }
 
     /**
-     * Eliminar un contenido (soft delete o hard delete según SP)
+     * Eliminar un contenido (soft delete)
      * @param int $id
      * @return bool
      */
     public function eliminarContenido($id)
     {
-        return $this->callProcedureNoReturn('sp_eliminar_contenido', [$id]);
+        $result = $this->callProcedureSingle('sp_eliminar_contenido', [$id]);
+        return $result && isset($result['affected_rows']) && (int) $result['affected_rows'] > 0;
     }
 
+    // ==========================================
+    // MÉTODOS DE UTILIDAD
+    // ==========================================
+    
     /**
      * Incrementar contador de vistas de un contenido
      * @param int $id
@@ -108,7 +157,8 @@ class ContenidoModel extends BaseModel
      */
     public function incrementarVistas($id)
     {
-        return $this->callProcedureNoReturn('sp_incrementar_vistas_contenido', [$id]);
+        $result = $this->callProcedureSingle('sp_incrementar_vistas_contenido', [$id]);
+        return $result && isset($result['affected_rows']) && (int) $result['affected_rows'] > 0;
     }
 
     /**
@@ -131,37 +181,10 @@ class ContenidoModel extends BaseModel
         return array_column($result, 'type');
     }
 
-    /**
-     * Contenidos más vistos (método existente - mantener)
-     */
-    public function contenidosMasVistos($limit = 10) 
-    {
-        return $this->callProcedureMultiple('sp_contenidos_mas_vistos', [$limit]);
-    }
-
-    /**
-     * Buscar contenidos por palabra clave
-     * @param string $keyword
-     * @return array
-     */
-    public function buscarContenidos($keyword)
-    {
-        return $this->callProcedureMultiple('sp_buscar_contenidos', [$keyword]);
-    }
-
-    /**
-     * Obtener contenidos recomendados para un usuario
-     * @param int $userId
-     * @param int $limit
-     * @return array
-     */
-    public function obtenerContenidosRecomendados($userId, $limit = 5)
-    {
-        return $this->callProcedureMultiple('sp_contenidos_recomendados_usuario', 
-            [$userId, $limit]
-        );
-    }
-
+    // ==========================================
+    // ESTADÍSTICAS E INFORMACIÓN
+    // ==========================================
+    
     /**
      * Contar contenidos por tipo
      * @return array
@@ -173,10 +196,166 @@ class ContenidoModel extends BaseModel
 
     /**
      * Obtener estadísticas de contenidos
-     * @return array
+     * @return array|null
      */
     public function obtenerEstadisticasContenidos()
     {
-        return $this->callProcedureSingle('sp_estadisticas_contenidos', []);
+        $result = $this->callProcedureSingle('sp_estadisticas_contenidos', []);
+        
+        return $result ?: [
+            'total_contenidos' => 0,
+            'contenidos_activos' => 0,
+            'total_vistas' => 0,
+            'duracion_promedio' => 0,
+            'total_areas' => 0,
+            'total_tipos' => 0
+        ];
+    }
+
+    /**
+     * Contar total de contenidos
+     * @return int
+     */
+    public function contarContenidos()
+    {
+        $stats = $this->obtenerEstadisticasContenidos();
+        return (int) ($stats['total_contenidos'] ?? 0);
+    }
+
+    /**
+     * Contar contenidos activos
+     * @return int
+     */
+    public function contarContenidosActivos()
+    {
+        $stats = $this->obtenerEstadisticasContenidos();
+        return (int) ($stats['contenidos_activos'] ?? 0);
+    }
+
+    /**
+     * Obtener contenidos por área
+     * @param string $subjectArea
+     * @return array
+     */
+    public function obtenerContenidosPorArea($subjectArea)
+    {
+        return $this->listarContenidos($subjectArea, null, null);
+    }
+
+    /**
+     * Obtener contenidos por tipo
+     * @param string $type
+     * @return array
+     */
+    public function obtenerContenidosPorTipo($type)
+    {
+        return $this->listarContenidos(null, null, $type);
+    }
+
+    /**
+     * Obtener contenidos por nivel de dificultad
+     * @param string $difficultyLevel
+     * @return array
+     */
+    public function obtenerContenidosPorDificultad($difficultyLevel)
+    {
+        return $this->listarContenidos(null, $difficultyLevel, null);
+    }
+
+    /**
+     * Validar datos de contenido antes de crear/actualizar
+     * @param array $data
+     * @return array Array con 'valid' (bool) y 'errors' (array)
+     */
+    public function validarDatosContenido($data)
+    {
+        $errors = [];
+
+        // Validar campos requeridos
+        if (empty($data['title'])) {
+            $errors[] = 'El título es requerido';
+        }
+
+        if (empty($data['subject_area'])) {
+            $errors[] = 'El área de materia es requerida';
+        }
+
+        if (empty($data['type'])) {
+            $errors[] = 'El tipo de contenido es requerido';
+        }
+
+        if (empty($data['difficulty_level'])) {
+            $errors[] = 'El nivel de dificultad es requerido';
+        }
+
+        // Validar tipos permitidos
+        $tiposPermitidos = ['Video', 'Documento', 'Interactivo', 'Quiz', 'Artículo'];
+        if (!empty($data['type']) && !in_array($data['type'], $tiposPermitidos)) {
+            $errors[] = 'Tipo de contenido no válido';
+        }
+
+        // Validar niveles de dificultad permitidos
+        $nivelesPermitidos = ['Básico', 'Intermedio', 'Avanzado'];
+        if (!empty($data['difficulty_level']) && !in_array($data['difficulty_level'], $nivelesPermitidos)) {
+            $errors[] = 'Nivel de dificultad no válido';
+        }
+
+        // Validar duración si se proporciona
+        if (isset($data['duration_minutes']) && (!is_numeric($data['duration_minutes']) || $data['duration_minutes'] < 0)) {
+            $errors[] = 'La duración debe ser un número positivo';
+        }
+
+        // Validar URL si se proporciona
+        if (!empty($data['content_url']) && !filter_var($data['content_url'], FILTER_VALIDATE_URL)) {
+            $errors[] = 'La URL del contenido no es válida';
+        }
+
+        return [
+            'valid' => empty($errors),
+            'errors' => $errors
+        ];
+    }
+
+    /**
+     * Verificar si un contenido existe
+     * @param int $id
+     * @return bool
+     */
+    public function existeContenido($id)
+    {
+        $contenido = $this->obtenerContenido($id);
+        return $contenido !== null;
+    }
+
+    /**
+     * Activar un contenido
+     * @param int $id
+     * @return bool
+     */
+    public function activarContenido($id)
+    {
+        $contenido = $this->obtenerContenido($id);
+        
+        if (!$contenido) {
+            return false;
+        }
+
+        return $this->actualizarContenido($id, array_merge($contenido, ['active' => 1]));
+    }
+
+    /**
+     * Desactivar un contenido
+     * @param int $id
+     * @return bool
+     */
+    public function desactivarContenido($id)
+    {
+        $contenido = $this->obtenerContenido($id);
+        
+        if (!$contenido) {
+            return false;
+        }
+
+        return $this->actualizarContenido($id, array_merge($contenido, ['active' => 0]));
     }
 }

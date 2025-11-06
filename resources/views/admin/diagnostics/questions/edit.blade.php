@@ -39,7 +39,7 @@
                             </label>
                             <textarea class="form-control @error('question') is-invalid @enderror" 
                                       id="question" 
-                                      name="question" 
+                                      name="question_text" 
                                       rows="3" 
                                       required>{{ old('question', $question->question) }}</textarea>
                             @error('question')

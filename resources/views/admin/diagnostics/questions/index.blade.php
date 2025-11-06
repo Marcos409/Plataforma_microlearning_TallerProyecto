@@ -19,7 +19,7 @@
                     <a href="{{ route('admin.diagnostics.index') }}" class="btn btn-outline-secondary">
                         <i class="fas fa-arrow-left me-1"></i>Volver a Diagnósticos
                     </a>
-                    <a href="{{ route('admin.diagnostics.questions.create', $diagnostic) }}" class="btn btn-success">
+                    <a href="{{ route('admin.diagnostics.questions.create', $diagnostic->id) }}" class="btn btn-success">
                         <i class="fas fa-plus me-1"></i>Nueva Pregunta
                     </a>
                 </div>
@@ -47,7 +47,7 @@
                         <div class="col-md-3">
                             <div class="text-center p-3 bg-primary text-white rounded">
                                 <i class="fas fa-list-ol fa-2x mb-2"></i>
-                                <h3 class="mb-0">{{ $questions->count() }}</h3>
+                                <h3 class="mb-0">{{ count($questions) }}</h3>
                                 <p class="mb-0">Preguntas Totales</p>
                             </div>
                         </div>
@@ -88,22 +88,23 @@
                                 <div class="card-header d-flex justify-content-between align-items-center">
                                     <div>
                                         <span class="badge bg-primary me-2">Pregunta #{{ $index + 1 }}</span>
-                                        <span class="badge bg-secondary">Tema: {{ $question->topic }}</span>
-                                        @if($question->difficulty_level == 1)
+                                        <span class="badge bg-secondary">Tema: {{ $question->topic ?? 'N/A' }}</span>
+                                        @if($question->difficulty_level ?? 'N/A' == 1)
                                             <span class="badge bg-success">Fácil</span>
-                                        @elseif($question->difficulty_level == 2)
+                                        @elseif($question->difficulty_level  ?? 'N/A' == 2)
                                             <span class="badge bg-warning">Media</span>
                                         @else
                                             <span class="badge bg-danger">Difícil</span>
                                         @endif
                                     </div>
                                     <div>
-                                        <a href="{{ route('admin.diagnostics.questions.edit', [$diagnostic, $question]) }}" 
+                                        <a href="{{ route('admin.diagnostics.questions.edit', [$diagnostic->id, $question->id]) }}" 
+                                        
                                            class="btn btn-sm btn-outline-primary">
                                             <i class="fas fa-edit"></i> Editar
                                         </a>
                                         <form method="POST" 
-                                              action="{{ route('admin.diagnostics.questions.destroy', [$diagnostic, $question]) }}" 
+                                              action="{{ route('admin.diagnostics.questions.destroy', [$diagnostic->id, $question->id]) }}"
                                               class="d-inline"
                                               onsubmit="return confirm('¿Estás seguro de eliminar esta pregunta?')">
                                             @csrf
@@ -116,7 +117,7 @@
                                 </div>
                                 <div class="card-body">
                                     <h6 class="mb-3"><strong>Pregunta:</strong></h6>
-                                    <p class="mb-3">{{ $question->question }}</p>
+                                    <p class="mb-3">{{ $question->question_text }}</p>
                                     
                                     <h6 class="mb-2"><strong>Opciones:</strong></h6>
                                     <div class="list-group">
@@ -145,7 +146,7 @@
                         <i class="fas fa-question-circle fa-4x text-muted mb-3"></i>
                         <h4 class="text-muted">No hay preguntas agregadas</h4>
                         <p class="text-muted mb-4">Comienza agregando preguntas a este diagnóstico</p>
-                        <a href="{{ route('admin.diagnostics.questions.create', $diagnostic) }}" class="btn btn-success">
+                        <a href="{{ route('admin.diagnostics.questions.create', $diagnostic->id) }}" class="btn btn-success">
                             <i class="fas fa-plus me-2"></i>Agregar Primera Pregunta
                         </a>
                     </div>

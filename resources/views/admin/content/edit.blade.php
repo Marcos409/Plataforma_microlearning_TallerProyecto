@@ -127,24 +127,24 @@
 
                         <!-- URL del Contenido -->
                         <div class="mb-4">
-                            <label for="externel_url" class="form-label fw-bold">
+                            <label for="content_url" class="form-label fw-bold">
                                 <i class="fas fa-link"></i> URL del Contenido (Video/Documento)
                             </label>
                             <input type="url" 
-                                   class="form-control @error('external_url') is-invalid @enderror" 
-                                   id="external_url" 
-                                   name="external_url" 
-                                   value="{{ old('external_url', $content->external_url) }}">
-                            @error('external_url')
+                                   class="form-control @error('content_url') is-invalid @enderror" 
+                                   id="content_url" 
+                                   name="content_url" 
+                                   value="{{ $content->content_url ?? ''}}">
+                            @error('content_url')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                             <small class="text-muted">
                                 <i class="fas fa-info-circle"></i> 
                                 Soporta: YouTube, Vimeo, Google Drive, Dropbox, enlaces directos a PDFs, etc.
                             </small>
-                            @if($content->external_url)
+                            @if($content->content_url ?? false)
                             <div class="mt-2">
-                                <a href="{{ $content->external_url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                <a href="{{ $content->content_url }}" target="_blank" class="btn btn-sm btn-outline-primary">
                                     <i class="fas fa-external-link-alt me-1"></i>Ver enlace actual
                                 </a>
                             </div>
@@ -185,7 +185,7 @@
             </div>
 
             <!-- Preview del Contenido -->
-            @if($content->external_url)
+            @if($content->external_url ?? false)
             <div class="card shadow-sm mt-4">
                 <div class="card-header bg-info text-white">
                     <h5 class="mb-0"><i class="fas fa-eye me-2"></i>Vista Previa del Contenido</h5>

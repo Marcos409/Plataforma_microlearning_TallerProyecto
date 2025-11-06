@@ -26,7 +26,7 @@
                 </div>
             @endif
 
-            <form method="POST" action="{{ route('admin.diagnostics.update', $diagnostic) }}">
+            <form method="POST" action="{{ route('admin.diagnostics.update', $diagnostic->id) }}">
                 @csrf
                 @method('PUT')
                 
@@ -59,12 +59,39 @@
                             @enderror
                         </div>
 
+                        <!-- ✅ CAMPO AGREGADO: Nivel de Dificultad -->
+                        <div class="mb-3">
+                            <label class="form-label">Nivel de Dificultad <span class="text-danger">*</span></label>
+                            <select name="difficulty_level" class="form-select @error('difficulty_level') is-invalid @enderror" required>
+                                <option value="">Selecciona un nivel...</option>
+                                <option value="Básico" {{ old('difficulty_level', $diagnostic->difficulty_level) == 'Básico' ? 'selected' : '' }}>Básico</option>
+                                <option value="Intermedio" {{ old('difficulty_level', $diagnostic->difficulty_level) == 'Intermedio' ? 'selected' : '' }}>Intermedio</option>
+                                <option value="Avanzado" {{ old('difficulty_level', $diagnostic->difficulty_level) == 'Avanzado' ? 'selected' : '' }}>Avanzado</option>
+                            </select>
+                            @error('difficulty_level')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                        </div>
+
+                        <!-- ✅ CAMPO AGREGADO: Tiempo Límite -->
+                        <div class="mb-3">
+                            <label class="form-label">Tiempo Límite (minutos)</label>
+                            <input type="number" name="time_limit_minutes" 
+                                   class="form-control @error('time_limit_minutes') is-invalid @enderror" 
+                                   value="{{ old('time_limit_minutes', $diagnostic->time_limit_minutes) }}" 
+                                   min="1" placeholder="Ej: 60">
+                            <small class="text-muted">Deja en blanco si no hay límite de tiempo</small>
+                            @error('time_limit_minutes')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                        </div>
+
                         <div class="mb-3">
                             <label class="form-label">Puntaje Mínimo para Aprobar (%) <span class="text-danger">*</span></label>
                             <input type="number" name="passing_score" 
                                    class="form-control @error('passing_score') is-invalid @enderror" 
                                    value="{{ old('passing_score', $diagnostic->passing_score) }}" 
-                                   min="1" max="100" required>
+                                   min="1" max="100" step="0.01" required>
                             <small class="text-muted">Porcentaje mínimo requerido para aprobar (1-100)</small>
                             @error('passing_score')
                                 <div class="invalid-feedback">{{ $message }}</div>
@@ -89,7 +116,7 @@
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" name="active" 
                                        id="active" value="1" 
-                                       {{ old('active', $diagnostic->active) ? 'checked' : '' }}>
+                                       {{ old('active', $diagnostic->active ?? 1) ? 'checked' : '' }}>
                                 <label class="form-check-label" for="active">
                                     <strong>Diagnóstico Activo</strong>
                                     <br><small class="text-muted">Los estudiantes podrán acceder y realizar este diagnóstico</small>
@@ -101,9 +128,9 @@
                             <div class="card-body">
                                 <h6><i class="fas fa-info-circle me-1"></i>Información</h6>
                                 <small class="text-muted">
-                                    <strong>Creado:</strong> {{ $diagnostic->created_at->format('d/m/Y H:i') }}<br>
-                                    <strong>Última actualización:</strong> {{ $diagnostic->updated_at->format('d/m/Y H:i') }}<br>
-                                    <strong>Total de preguntas:</strong> {{ $diagnostic->questions->count() }}
+                                    <strong>Creado:</strong> {{ isset($diagnostic->created_at) ? \Carbon\Carbon::parse($diagnostic->created_at)->format('d/m/Y H:i') : 'N/A' }}<br>
+                                    <strong>Modificado:</strong> {{ isset($diagnostic->updated_at) ? \Carbon\Carbon::parse($diagnostic->updated_at)->format('d/m/Y H:i') : 'N/A' }}<br>
+                                    <strong>Número de Preguntas:</strong> {{ count($diagnostic->questions ?? []) }}
                                 </small>
                             </div>
                         </div>
@@ -117,12 +144,12 @@
                         <a href="{{ route('admin.diagnostics.index') }}" class="btn btn-secondary">
                             <i class="fas fa-times me-1"></i>Cancelar
                         </a>
-                        <a href="{{ route('admin.diagnostics.show', $diagnostic) }}" class="btn btn-info">
+                        <a href="{{ route('admin.diagnostics.show', $diagnostic->id) }}" class="btn btn-info">
                             <i class="fas fa-eye me-1"></i>Ver Detalle
                         </a>
                     </div>
                     <div>
-                        <a href="{{ route('admin.diagnostics.questions.index', $diagnostic) }}" class="btn btn-success me-2">
+                        <a href="{{ route('admin.diagnostics.questions.index', $diagnostic->id) }}" class="btn btn-success me-2">
                             <i class="fas fa-question-circle me-1"></i>Gestionar Preguntas
                         </a>
                         <button type="submit" class="btn btn-primary">

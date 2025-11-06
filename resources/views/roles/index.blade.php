@@ -18,7 +18,7 @@
     </div>
 
     <!-- Estadísticas -->
-<div class="row mb-3">
+<div class="row mb-3 justify-content-center">
     <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
         <div class="card bg-primary text-white h-100">
             <div class="card-body text-center py-3">
@@ -28,15 +28,7 @@
             </div>
         </div>
     </div>
-    <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
-        <div class="card bg-warning text-white h-100">
-            <div class="card-body text-center py-3">
-                <i class="fas fa-clock fa-2x mb-2"></i>
-                <h4 class="mb-1">{{ $usersWithoutRole }}</h4>
-                <p class="mb-0 small">Sin Rol</p>
-            </div>
-        </div>
-    </div>
+    
     @foreach($roles as $role)
     <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
         <div class="card bg-{{ $role->name == 'Administrador' ? 'danger' : ($role->name == 'Docente' ? 'success' : 'info') }} text-white h-100">

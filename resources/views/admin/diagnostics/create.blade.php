@@ -38,8 +38,35 @@
                         <option value="Química" {{ old('subject_area') == 'Química' ? 'selected' : '' }}>Química</option>
                         <option value="Programación" {{ old('subject_area') == 'Programación' ? 'selected' : '' }}>Programación</option>
                         <option value="Inglés" {{ old('subject_area') == 'Inglés' ? 'selected' : '' }}>Inglés</option>
+                        <option value="Biología" {{ old('subject_area') == 'Biología' ? 'selected' : '' }}>Biología</option>
                     </select>
                     @error('subject_area')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
+
+                <!-- ✅ CAMPO NUEVO: Nivel de Dificultad -->
+                <div class="mb-3">
+                    <label class="form-label">Nivel de Dificultad <span class="text-danger">*</span></label>
+                    <select name="difficulty_level" class="form-select @error('difficulty_level') is-invalid @enderror" required>
+                        <option value="">Selecciona un nivel...</option>
+                        <option value="Básico" {{ old('difficulty_level') == 'Básico' ? 'selected' : '' }}>Básico</option>
+                        <option value="Intermedio" {{ old('difficulty_level') == 'Intermedio' ? 'selected' : '' }}>Intermedio</option>
+                        <option value="Avanzado" {{ old('difficulty_level') == 'Avanzado' ? 'selected' : '' }}>Avanzado</option>
+                    </select>
+                    <small class="text-muted">Indica la complejidad del diagnóstico</small>
+                    @error('difficulty_level')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
+
+                <!-- ✅ CAMPO NUEVO: Tiempo Límite -->
+                <div class="mb-3">
+                    <label class="form-label">Tiempo Límite (minutos)</label>
+                    <input type="number" name="time_limit_minutes" class="form-control @error('time_limit_minutes') is-invalid @enderror" 
+                           value="{{ old('time_limit_minutes') }}" min="1" placeholder="Ej: 60">
+                    <small class="text-muted">Deja en blanco si no hay límite de tiempo</small>
+                    @error('time_limit_minutes')
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
                 </div>
@@ -47,7 +74,7 @@
                 <div class="mb-3">
                     <label class="form-label">Puntaje Mínimo para Aprobar (%) <span class="text-danger">*</span></label>
                     <input type="number" name="passing_score" class="form-control @error('passing_score') is-invalid @enderror" 
-                           value="{{ old('passing_score', 60) }}" min="1" max="100" required>
+                           value="{{ old('passing_score', 60) }}" min="1" max="100" step="0.01" required>
                     <small class="text-muted">Porcentaje mínimo requerido para aprobar el diagnóstico (1-100)</small>
                     @error('passing_score')
                         <div class="invalid-feedback">{{ $message }}</div>

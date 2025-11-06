@@ -6,7 +6,7 @@
         <div class="col-md-12">
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h4>Gestión de Estudiantes</h4>
+                    <h4><i class="fas fa-users me-2"></i>Gestión de Estudiantes</h4>
                     <div>
                         <a href="{{ route('admin.students.create') }}" class="btn btn-primary">
                             <i class="fas fa-plus"></i> Nuevo Estudiante
@@ -114,8 +114,8 @@
                                 @forelse($students as $student)
                                 <tr>
                                     <td><strong>{{ $student->student_code ?? 'N/A' }}</strong></td>
-                                    <td>{{ $student->name }}</td>
-                                    <td>{{ $student->email }}</td>
+                                    <td>{{ $student['name'] ?? 'N/A' }}</td>
+                                    <td>{{ $student['email'] ?? 'N/A' }}</td>
                                     <td>
                                         <span class="badge badge-info">{{ $student->career ?? 'Sin carrera' }}</span>
                                     </td>
@@ -127,18 +127,18 @@
                                             <span class="badge badge-secondary">Inactivo</span>
                                         @endif
                                     </td>
-                                    <td>{{ $student->created_at->format('d/m/Y') }}</td>
+                                    <td>{{ \Carbon\Carbon::parse($student['created_at'])->format('d/m/Y') }}</td>
                                     <td>
                                         <div class="btn-group" role="group">
-                                            <a href="{{ route('admin.students.show', $student->id) }}" 
+                                            <a href="{{ route('admin.students.show', $student['id']) }}" 
                                                class="btn btn-sm btn-info" title="Ver detalles">
                                                 <i class="fas fa-eye"></i>
                                             </a>
-                                            <a href="{{ route('admin.students.edit', $student->id) }}" 
+                                            <a href="{{ route('admin.students.edit', $student['id']) }}" 
                                                class="btn btn-sm btn-primary" title="Editar">
                                                 <i class="fas fa-edit"></i>
                                             </a>
-                                            <form method="POST" action="{{ route('admin.students.destroy', $student->id) }}" 
+                                            <form method="POST" action="{{ route('admin.students.destroy', $student['id']) }}" 
                                                   style="display: inline;">
                                                 @csrf
                                                 @method('DELETE')

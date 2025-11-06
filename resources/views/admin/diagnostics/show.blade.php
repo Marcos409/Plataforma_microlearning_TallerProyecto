@@ -9,9 +9,9 @@
         <div>
             <h2><i class="fas fa-clipboard-list me-2"></i>{{ $diagnostic->title }}</h2>
             <p class="text-muted mb-0">
-                <span class="badge bg-primary">{{ $diagnostic->subject_area }}</span>
-                <span class="badge bg-{{ $diagnostic->active ? 'success' : 'secondary' }} ms-2">
-                    {{ $diagnostic->active ? 'Activo' : 'Inactivo' }}
+                <span class="badge bg-primary">{{ $diagnostic->subject_area}}</span>
+                <<span class="badge bg-{{ data_get($diagnostic, 'active', 0) ? 'success' : 'secondary' }} ms-2">
+                    {{ data_get($diagnostic, 'active', 0) ? 'Activo' : 'Inactivo' }}
                 </span>
             </p>
         </div>
@@ -19,10 +19,10 @@
             <a href="{{ route('admin.diagnostics.index') }}" class="btn btn-secondary">
                 <i class="fas fa-arrow-left me-1"></i>Volver
             </a>
-            <a href="{{ route('admin.diagnostics.edit', $diagnostic) }}" class="btn btn-primary">
+            <a href="{{ route('admin.diagnostics.edit', $diagnostic->id) }}" class="btn btn-primary">
                 <i class="fas fa-edit me-1"></i>Editar
             </a>
-            <a href="{{ route('admin.diagnostics.questions.index', $diagnostic) }}" class="btn btn-success">
+            <a href="{{ route('admin.diagnostics.questions.index', $diagnostic->id) }}" class="btn btn-success">
                 <i class="fas fa-question-circle me-1"></i>Gestionar Preguntas
             </a>
         </div>
@@ -43,7 +43,7 @@
                         </div>
                         <div class="col-md-6">
                             <strong>Área de Materia:</strong>
-                            <p>{{ $diagnostic->subject_area }}</p>
+                            <p>{{ $diagnostic->subject_area}}</p>
                         </div>
                     </div>
 
@@ -55,8 +55,8 @@
                         <div class="col-md-6">
                             <strong>Estado:</strong>
                             <p>
-                                <span class="badge bg-{{ $diagnostic->active ? 'success' : 'secondary' }}">
-                                    {{ $diagnostic->active ? 'Activo' : 'Inactivo' }}
+                                <span class="badge bg-{{ ($diagnostic->active ?? false) ? 'success' : 'secondary' }}">
+                                    {{ ($diagnostic->active ?? false) ? 'Activo' : 'Inactivo' }}
                                 </span>
                             </p>
                         </div>
@@ -86,7 +86,13 @@
             <div class="card bg-primary text-white mb-3">
                 <div class="card-body text-center">
                     <i class="fas fa-question-circle fa-3x mb-2"></i>
-                    <h3>{{ $diagnostic->total_questions ?? $diagnostic->questions->count() }}</h3>
+                    @foreach ($questions as $question)
+                        <tr>
+                            {{-- Aquí accedes a las propiedades de $question como array asociativo [] --}}
+                            <td>{{ $question['id'] }}</td> 
+                            {{-- ... otros campos ... --}}
+                        </tr>
+                    @endforeach
                     <p class="mb-0">Total de Preguntas</p>
                 </div>
             </div>
@@ -113,12 +119,12 @@
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0"><i class="fas fa-list me-2"></i>Preguntas del Diagnóstico</h5>
-            <a href="{{ route('admin.diagnostics.questions.create', $diagnostic) }}" class="btn btn-sm btn-success">
+            <a href="{{ route('admin.diagnostics.questions.create', $diagnostic->id) }}" class="btn btn-sm btn-success">
                 <i class="fas fa-plus me-1"></i>Agregar Pregunta
             </a>
         </div>
         <div class="card-body">
-            @if($diagnostic->questions->count() > 0)
+            @if(count($questions) > 0)
                 <div class="table-responsive">
                     <table class="table table-hover">
                         <thead>
@@ -167,7 +173,7 @@
                     <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
                     <h5 class="text-muted">No hay preguntas agregadas aún</h5>
                     <p class="text-muted">Comienza agregando preguntas a este diagnóstico</p>
-                    <a href="{{ route('admin.diagnostics.questions.create', $diagnostic) }}" class="btn btn-success">
+                    <a href="{{ route('admin.diagnostics.questions.create', $diagnostic->id) }}" class="btn btn-success">
                         <i class="fas fa-plus me-1"></i>Agregar Primera Pregunta
                     </a>
                 </div>

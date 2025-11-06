@@ -22,7 +22,7 @@
                         </div>
                     @endif
 
-                    @if($diagnostics->count() > 0)
+                    @if(count($diagnostics) > 0) 
                         <div class="table-responsive">
                             <table class="table table-hover">
                                 <thead class="table-light">
@@ -39,9 +39,9 @@
                                 <tbody>
                                     @foreach($diagnostics as $diagnostic)
                                     <tr>
-                                        <td>{{ $diagnostic->id }}</td>
+                                        <td>{{ $diagnostic['id'] }}</td>
                                         <td>
-                                            <strong>{{ $diagnostic->title }}</strong>
+                                            <strong>{{ $diagnostic['title']  }}</strong>
                                         </td>
                                         <td>
                                             <small class="text-muted">
@@ -55,24 +55,28 @@
                                         </td>
                                         <td class="text-center">
                                             <span class="badge bg-secondary">
-                                                {{ $diagnostic->questions_count ?? $diagnostic->questions()->count() ?? 0 }}
+                                                {{ $diagnostic['questions_count'] ?? 0 }}
                                             </span>
                                         </td>
                                         <td>
-                                            <small>{{ $diagnostic->created_at ? $diagnostic->created_at->format('d/m/Y') : 'N/A' }}</small>
+                                            @if($diagnostic['created_at'] ?? false)
+                                                {{ \Carbon\Carbon::parse($diagnostic['created_at'])->format('d/m/Y H:i') }}
+                                            @else
+                                                N/A
+                                            @endif
                                         </td>
                                         <td>
                                             <div class="btn-group" role="group">
-                                                <a href="{{ route('admin.diagnostics.show', $diagnostic->id) }}" 
+                                                <a href="{{ route('admin.diagnostics.show', $diagnostic['id'] ) }}" 
                                                    class="btn btn-sm btn-outline-info" title="Ver">
                                                     <i class="fas fa-eye"></i>
                                                 </a>
-                                                <a href="{{ route('admin.diagnostics.edit', $diagnostic->id) }}" 
+                                                <a href="{{ route('admin.diagnostics.edit', $diagnostic['id'] ) }}" 
                                                    class="btn btn-sm btn-outline-primary" title="Editar">
                                                     <i class="fas fa-edit"></i>
                                                 </a>
                                                 <form method="POST" 
-                                                      action="{{ route('admin.diagnostics.destroy', $diagnostic->id) }}" 
+                                                      action="{{ route('admin.diagnostics.destroy', $diagnostic['id'] ) }}" 
                                                       class="d-inline">
                                                     @csrf
                                                     @method('DELETE')
@@ -91,7 +95,7 @@
                             </table>
                         </div>
 
-                        @if(method_exists($diagnostics, 'links'))
+                        @if ($diagnostics instanceof \Illuminate\Contracts\Pagination\Paginator)
                             <div class="mt-3">
                                 {{ $diagnostics->links() }}
                             </div>

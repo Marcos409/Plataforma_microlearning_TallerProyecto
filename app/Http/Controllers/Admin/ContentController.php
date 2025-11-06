@@ -44,6 +44,12 @@ class ContentController extends Controller
 
         $contents = $this->contenidoModel->listarContenidosFiltrados($filters);
 
+        if (is_array($contents) || ($contents instanceof \Illuminate\Support\Collection)) {
+            $contents = collect($contents)->map(function($item) {
+                return (object) $item;
+            });
+        }
+
         // ✅ Obtener datos únicos para los filtros
         $subjects = $this->contenidoModel->obtenerAreasUnicas();
         $types = $this->contenidoModel->obtenerTiposUnicos();
@@ -114,6 +120,7 @@ class ContentController extends Controller
         if (!$content) {
             abort(404, 'Contenido no encontrado.');
         }
+        $content = (object) $content;
 
         return view('admin.content.show', compact('content'));
     }
@@ -129,6 +136,7 @@ class ContentController extends Controller
         if (!$content) {
             abort(404, 'Contenido no encontrado.');
         }
+        $content = (object) $content;
 
         // Datos estáticos para los selectores del formulario
         $subjects = ['Matemáticas', 'Física', 'Química', 'Programación', 'Historia', 'Biología'];

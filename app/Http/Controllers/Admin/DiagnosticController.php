@@ -23,7 +23,6 @@ class DiagnosticController extends Controller
      */
     public function index()
     {
-        // Obtener diagnósticos usando SP
         $diagnostics = $this->diagnosticoModel->listarDiagnosticos();
         
         return view('admin.diagnostics.index', [
@@ -48,20 +47,14 @@ class DiagnosticController extends Controller
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'subject_area' => 'required|string|max:255',
-            'difficulty_level' => 'required|in:Básico,Intermedio,Avanzado',
+            'difficulty_level' => 'nullable|in:Básico,Intermedio,Avanzado',
             'time_limit_minutes' => 'nullable|integer|min:1',
             'passing_score' => 'required|numeric|min:1|max:100',
         ]);
 
-        // Crear diagnóstico usando SP
-        $diagnosticId = $this->diagnosticoModel->crearDiagnostico(
-            $validated['title'],
-            $validated['description'] ?? null,
-            $validated['subject_area'],
-            $validated['difficulty_level'],
-            $validated['time_limit_minutes'] ?? null,
-            $validated['passing_score']
-        );
+        $validated['difficulty_level'] = $validated['difficulty_level'] ?? 'Básico';
+
+        $diagnosticId = $this->diagnosticoModel->crearDiagnostico($validated);
 
         if (!$diagnosticId) {
             return redirect()->back()
@@ -78,35 +71,48 @@ class DiagnosticController extends Controller
      */
     public function show($id)
     {
-        // Obtener diagnóstico completo con preguntas usando SP
         $data = $this->diagnosticoModel->obtenerDiagnosticoCompleto($id);
 
         if (!$data) {
             abort(404, 'Diagnóstico no encontrado');
         }
 
+        $diagnosticData = $data['diagnostico'];
+        if (isset($diagnosticData[0]) && is_array($diagnosticData[0])) {
+            $diagnosticData = $diagnosticData[0];
+        }
+
         return view('admin.diagnostics.show', [
-            'diagnostic' => $data['diagnostico'],
-            'questions' => $data['preguntas']
+            'diagnostic' => (object) $diagnosticData,
+            'questions' => collect($data['preguntas'])->map(fn($q) => (object) $q)
         ]);
     }
 
     /**
-     * Mostrar formulario de edición
-     */
-    public function edit($id)
-    {
-        // Obtener diagnóstico usando SP
-        $diagnostic = $this->diagnosticoModel->obtenerDiagnostico($id);
+ * Mostrar formulario de edición
+ */
+public function edit($id)
+{
+    $diagnostic = $this->diagnosticoModel->obtenerDiagnostico($id);
 
-        if (!$diagnostic) {
-            abort(404, 'Diagnóstico no encontrado');
-        }
-
-        return view('admin.diagnostics.edit', [
-            'diagnostic' => $diagnostic
-        ]);
+    if (!$diagnostic) {
+        abort(404, 'Diagnóstico no encontrado');
     }
+
+    // ✅ CONVERTIR A OBJETO si es array
+    if (is_array($diagnostic)) {
+        // Si es un array de arrays, tomar el primero
+        if (isset($diagnostic[0]) && is_array($diagnostic[0])) {
+            $diagnostic = (object) $diagnostic[0];
+        } else {
+            $diagnostic = (object) $diagnostic;
+        }
+    }
+
+    return view('admin.diagnostics.edit', [
+        'diagnostic' => $diagnostic,
+    ]);
+}
 
     /**
      * Actualizar diagnóstico
@@ -117,25 +123,16 @@ class DiagnosticController extends Controller
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'subject_area' => 'required|string|max:255',
-            'difficulty_level' => 'required|in:Básico,Intermedio,Avanzado',
+            'difficulty_level' => 'nullable|in:Básico,Intermedio,Avanzado',
             'time_limit_minutes' => 'nullable|integer|min:1',
             'passing_score' => 'required|numeric|min:1|max:100',
             'active' => 'nullable|boolean',
         ]);
 
-        $active = $request->has('active') ? 1 : 0;
+        $validated['difficulty_level'] = $validated['difficulty_level'] ?? 'Básico';
+        $validated['active'] = $request->has('active') ? 1 : 0;
 
-        // Actualizar diagnóstico usando SP
-        $updated = $this->diagnosticoModel->actualizarDiagnostico(
-            $id,
-            $validated['title'],
-            $validated['description'] ?? null,
-            $validated['subject_area'],
-            $validated['difficulty_level'],
-            $validated['time_limit_minutes'] ?? null,
-            $validated['passing_score'],
-            $active
-        );
+        $updated = $this->diagnosticoModel->actualizarDiagnostico($id, $validated);
 
         if (!$updated) {
             return redirect()->back()
@@ -152,7 +149,6 @@ class DiagnosticController extends Controller
      */
     public function destroy($id)
     {
-        // Eliminar diagnóstico usando SP
         $deleted = $this->diagnosticoModel->eliminarDiagnostico($id);
 
         if (!$deleted) {
@@ -167,29 +163,54 @@ class DiagnosticController extends Controller
     // ==================== GESTIÓN DE PREGUNTAS ====================
 
     /**
-     * Listar preguntas de un diagnóstico
-     */
-    public function questionsIndex($diagnosticId)
-    {
-        // Obtener diagnóstico con preguntas usando SP
-        $data = $this->diagnosticoModel->obtenerDiagnosticoCompleto($diagnosticId);
+ * Listar preguntas de un diagnóstico
+ */
+public function questionsIndex($diagnosticId)
+{
+    $data = $this->diagnosticoModel->obtenerDiagnosticoCompleto($diagnosticId);
 
-        if (!$data) {
-            abort(404, 'Diagnóstico no encontrado');
-        }
-
-        return view('admin.diagnostics.questions.index', [
-            'diagnostic' => $data['diagnostico'],
-            'questions' => $data['preguntas']
-        ]);
+    if (!$data) {
+        abort(404, 'Diagnóstico no encontrado');
     }
+
+    $diagnosticData = $data['diagnostico'];
+    if (isset($diagnosticData[0]) && is_array($diagnosticData[0])) {
+        $diagnosticData = $diagnosticData[0];
+    }
+
+    // ✅ MANEJO ROBUSTO DE PREGUNTAS
+    $preguntas = $data['preguntas'] ?? [];
+    
+    // Si es string (JSON), decodificar
+    if (is_string($preguntas)) {
+        $decoded = json_decode($preguntas, true);
+        $preguntas = is_array($decoded) ? $decoded : [];
+    }
+    
+    // Si no es array, usar array vacío
+    if (!is_array($preguntas)) {
+        $preguntas = [];
+    }
+
+    // Si las preguntas tienen 'options' como string JSON, decodificarlas
+    $preguntas = array_map(function($pregunta) {
+        if (is_array($pregunta) && isset($pregunta['options']) && is_string($pregunta['options'])) {
+            $pregunta['options'] = json_decode($pregunta['options'], true);
+        }
+        return $pregunta;
+    }, $preguntas);
+
+    return view('admin.diagnostics.questions.index', [
+        'diagnostic' => (object) $diagnosticData,
+        'questions' => collect($preguntas)->map(fn($q) => (object) $q)
+    ]);
+}
 
     /**
      * Mostrar formulario para crear pregunta
      */
     public function questionsCreate($diagnosticId)
     {
-        // Verificar que el diagnóstico existe
         $diagnostic = $this->diagnosticoModel->obtenerDiagnostico($diagnosticId);
 
         if (!$diagnostic) {
@@ -197,7 +218,7 @@ class DiagnosticController extends Controller
         }
 
         return view('admin.diagnostics.questions.create', [
-            'diagnostic' => $diagnostic
+            'diagnostic' => (object) $diagnostic
         ]);
     }
 
@@ -206,33 +227,59 @@ class DiagnosticController extends Controller
      */
     public function questionsStore(Request $request, $diagnosticId)
     {
+        // ✅ VALIDACIÓN AJUSTADA para coincidir con el formulario
         $validated = $request->validate([
-            'question_text' => 'required|string',
-            'question_type' => 'required|in:multiple_choice,true_false,open_ended',
+            'question_text' => 'required|string',  // Cambio de 'question' a 'question_text'
+            'question_type' => 'nullable|in:multiple_choice,true_false,open_ended',
+            'topic' => 'nullable|string',
+            'difficulty_level' => 'nullable|integer|min:1|max:3',
             'options' => 'nullable|array|min:2|max:5',
-            'options.*' => 'required|string',
-            'correct_answer' => 'required|string',
+            'options.*' => 'nullable|string',
+            'correct_answer' => 'required',  // Acepta índice
             'points' => 'nullable|numeric|min:0.5|max:10',
         ]);
 
-        // Validar que la respuesta correcta esté en las opciones (para multiple_choice)
-        if ($validated['question_type'] === 'multiple_choice' && isset($validated['options'])) {
-            if (!\in_array($validated['correct_answer'], $validated['options'])) {
-                return redirect()->back()
-                    ->withErrors(['correct_answer' => 'La respuesta correcta debe estar entre las opciones'])
-                    ->withInput();
+        // Establecer tipo por defecto
+        $validated['question_type'] = $validated['question_type'] ?? 'multiple_choice';
+
+        // ✅ Filtrar opciones vacías
+        if (isset($validated['options'])) {
+            $validated['options'] = array_values(array_filter($validated['options'], function($opt) {
+                return !empty(trim($opt));
+            }));
+        }
+
+        // ✅ Convertir correct_answer de índice a texto de la opción
+        if (isset($validated['options']) && is_numeric($validated['correct_answer'])) {
+            $correctIndex = (int) $validated['correct_answer'];
+            if (isset($validated['options'][$correctIndex])) {
+                $validated['correct_answer'] = $validated['options'][$correctIndex];
             }
         }
 
-        // Crear pregunta usando SP
-        $questionId = $this->diagnosticoModel->crearPregunta(
-            $diagnosticId,
-            $validated['question_text'],
-            $validated['question_type'],
-            isset($validated['options']) ? \json_encode($validated['options']) : null,
-            $validated['correct_answer'],
-            $validated['points'] ?? 1.0
-        );
+        // Validar que la respuesta correcta no esté vacía
+        if (empty(trim($validated['correct_answer']))) {
+            return redirect()->back()
+                ->withErrors(['correct_answer' => 'Debe seleccionar una respuesta correcta válida'])
+                ->withInput();
+        }
+
+        // Validar mínimo 2 opciones para multiple_choice
+        if ($validated['question_type'] === 'multiple_choice' && count($validated['options']) < 2) {
+            return redirect()->back()
+                ->withErrors(['options' => 'Debe proporcionar al menos 2 opciones'])
+                ->withInput();
+        }
+
+        // ✅ Crear pregunta usando array
+        $questionId = $this->diagnosticoModel->crearPregunta([
+            'diagnostic_id' => $diagnosticId,
+            'question_text' => $validated['question_text'],
+            'question_type' => $validated['question_type'],
+            'options' => isset($validated['options']) ? json_encode($validated['options']) : null,
+            'correct_answer' => $validated['correct_answer'],
+            'points' => $validated['points'] ?? 1.0
+        ]);
 
         if (!$questionId) {
             return redirect()->back()
@@ -249,14 +296,12 @@ class DiagnosticController extends Controller
      */
     public function questionsEdit($diagnosticId, $questionId)
     {
-        // Obtener diagnóstico
         $diagnostic = $this->diagnosticoModel->obtenerDiagnostico($diagnosticId);
 
         if (!$diagnostic) {
             abort(404, 'Diagnóstico no encontrado');
         }
 
-        // Obtener pregunta
         $question = $this->diagnosticoModel->obtenerPregunta($questionId);
 
         if (!$question) {
@@ -264,8 +309,8 @@ class DiagnosticController extends Controller
         }
 
         return view('admin.diagnostics.questions.edit', [
-            'diagnostic' => $diagnostic,
-            'question' => $question
+            'diagnostic' => (object) $diagnostic,
+            'question' => (object) $question
         ]);
     }
 
@@ -276,31 +321,49 @@ class DiagnosticController extends Controller
     {
         $validated = $request->validate([
             'question_text' => 'required|string',
-            'question_type' => 'required|in:multiple_choice,true_false,open_ended',
+            'question_type' => 'nullable|in:multiple_choice,true_false,open_ended',
+            'topic' => 'nullable|string',
+            'difficulty_level' => 'nullable|integer|min:1|max:3',
             'options' => 'nullable|array|min:2|max:5',
-            'options.*' => 'required|string',
-            'correct_answer' => 'required|string',
+            'options.*' => 'nullable|string',
+            'correct_answer' => 'required',
             'points' => 'nullable|numeric|min:0.5|max:10',
         ]);
 
+        $validated['question_type'] = $validated['question_type'] ?? 'multiple_choice';
+
+        // Filtrar opciones vacías
+        if (isset($validated['options'])) {
+            $validated['options'] = array_values(array_filter($validated['options'], function($opt) {
+                return !empty(trim($opt));
+            }));
+        }
+
+        // Convertir correct_answer de índice a texto
+        if (isset($validated['options']) && is_numeric($validated['correct_answer'])) {
+            $correctIndex = (int) $validated['correct_answer'];
+            if (isset($validated['options'][$correctIndex])) {
+                $validated['correct_answer'] = $validated['options'][$correctIndex];
+            }
+        }
+
         // Validar respuesta correcta
         if ($validated['question_type'] === 'multiple_choice' && isset($validated['options'])) {
-            if (!\in_array($validated['correct_answer'], $validated['options'])) {
+            if (!in_array($validated['correct_answer'], $validated['options'])) {
                 return redirect()->back()
                     ->withErrors(['correct_answer' => 'La respuesta correcta debe estar entre las opciones'])
                     ->withInput();
             }
         }
 
-        // Actualizar pregunta usando SP
-        $updated = $this->diagnosticoModel->actualizarPregunta(
-            $questionId,
-            $validated['question_text'],
-            $validated['question_type'],
-            isset($validated['options']) ? \json_encode($validated['options']) : null,
-            $validated['correct_answer'],
-            $validated['points'] ?? 1.0
-        );
+        // ✅ Actualizar usando array
+        $updated = $this->diagnosticoModel->actualizarPregunta($questionId, [
+            'question_text' => $validated['question_text'],
+            'question_type' => $validated['question_type'],
+            'options' => isset($validated['options']) ? json_encode($validated['options']) : null,
+            'correct_answer' => $validated['correct_answer'],
+            'points' => $validated['points'] ?? 1.0
+        ]);
 
         if (!$updated) {
             return redirect()->back()
@@ -317,7 +380,6 @@ class DiagnosticController extends Controller
      */
     public function questionsDestroy($diagnosticId, $questionId)
     {
-        // Eliminar pregunta usando SP
         $deleted = $this->diagnosticoModel->eliminarPregunta($questionId);
 
         if (!$deleted) {

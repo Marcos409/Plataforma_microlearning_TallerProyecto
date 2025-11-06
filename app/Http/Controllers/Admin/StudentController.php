@@ -7,6 +7,8 @@ use App\DataAccessModels\UsuarioModel;
 use App\DataAccessModels\RiskAlertModel;
 use App\DataAccessModels\LearningPathModel;
 use App\DataAccessModels\EstadisticasModel;
+use App\DataAccessModels\RutaAprendizajeModel; // <-- ¡ESTA FALTABA!
+use App\DataAccessModels\ProgresoModel; // <-- ¡Y ESTA OTRA TAMBIÉN FALTABA!
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Response;
@@ -14,7 +16,9 @@ use Illuminate\Support\Facades\Response;
 class StudentController extends Controller
 {
     protected $usuarioModel;
-    protected $riskAlertModel;        
+    protected $riskAlertModel;
+    protected $rutaAprendizajeModel;
+    protected $progresoModel;        
     protected $learningPathModel; 
     protected $estadisticasModel;
 
@@ -24,6 +28,11 @@ class StudentController extends Controller
     public function __construct()
     {
         $this->usuarioModel = new UsuarioModel();
+        $this->rutaAprendizajeModel = new RutaAprendizajeModel();
+        $this->progresoModel = new ProgresoModel();
+        $this->estadisticasModel = new EstadisticasModel();
+        $this->learningPathModel = new LearningPathModel(); 
+        $this->riskAlertModel = new RiskAlertModel();
     }
 
     /**
@@ -187,7 +196,6 @@ class StudentController extends Controller
             }
 
             $student = (object) $student;
-
             // Obtener progreso usando SP
             $studentProgress = $this->usuarioModel->obtenerProgresoEstudiante($id);
             $student->studentProgress = collect($studentProgress)->map(fn($p) => (object) $p);

@@ -78,9 +78,9 @@
                     <tbody>
                         @forelse($analyses as $analysis)
                         <tr>
-                            <td>{{ $analysis->user->name }}</td>
-                            <td>{{ $analysis->user->student_code }}</td>
-                            <td>{{ $analysis->user->career }}</td>
+                            <td>{{ $analysis->student_name }}</td>
+                            <td>{{ $analysis->student_code}}</td>
+                            <td>{{ $analysis->student_career}}</td>
                             <td>
                                 <span class="badge bg-{{ $analysis->diagnostico === 'avanzado' ? 'success' : ($analysis->diagnostico === 'intermedio' ? 'info' : 'warning') }}">
                                     {{ ucfirst($analysis->diagnostico) }}
@@ -89,7 +89,7 @@
                             <td>{{ str_replace('_', ' ', ucfirst($analysis->ruta_aprendizaje)) }}</td>
                             <td>
                                 <span class="badge bg-{{ $analysis->nivel_riesgo === 'bajo' ? 'success' : ($analysis->nivel_riesgo === 'medio' ? 'warning' : 'danger') }}">
-                                    {{ ucfirst($analysis->nivel_riesgo) }}
+                                    {{ ucfirst($analysis->nivel_riesgo ) }}
                                 </span>
                             </td>
                             <td>{{ $analysis->created_at->format('d/m/Y H:i') }}</td>
@@ -105,7 +105,7 @@
                             <div class="modal-dialog modal-lg">
                                 <div class="modal-content">
                                     <div class="modal-header">
-                                        <h5 class="modal-title">Análisis de {{ $analysis->user->name }}</h5>
+                                        <h5 class="modal-title">Análisis de {{ $analysis->student_name}}</h5>
                                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                     </div>
                                     <div class="modal-body">
