@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class LearningPathContent extends Model
 {
+    protected $table = 'learning_path_content';
     use HasFactory;
 
     protected $fillable = [
