@@ -50,7 +50,7 @@ class ContentController extends Controller
         $types = ContentLibrary::distinct()->pluck('type');
 
         // Contenidos recomendados
-        $recommended = Recommendation::where('user_id', auth()->id())
+        $recommended = Recommendation::where('user_id', Auth::id())
             ->where('is_completed', false)
             ->with('content')
             ->orderBy('priority')
@@ -65,7 +65,7 @@ class ContentController extends Controller
     public function show(ContentLibrary $content)
     {
         // Marcar recomendación como vista si existe
-        $recommendation = Recommendation::where('user_id', auth()->id())
+        $recommendation = Recommendation::where('user_id', Auth::id())
             ->where('content_id', $content->id)
             ->where('is_viewed', false)
             ->first();
@@ -90,7 +90,7 @@ class ContentController extends Controller
 
     public function markAsComplete(Request $request, ContentLibrary $content)
     {
-        $user = auth()->user();
+        $user = Auth::user();
         $timeSpent = $request->input('time_spent', 0);
 
         // Actualizar progreso del estudiante
@@ -153,7 +153,7 @@ class ContentController extends Controller
 
     public function learningPaths()
     {
-        $learningPaths = LearningPath::where('user_id', auth()->id())
+        $learningPaths = LearningPath::where('user_id', Auth::id())
             ->with(['contents.content'])
             ->orderBy('created_at', 'desc')
             ->get();
@@ -164,7 +164,7 @@ class ContentController extends Controller
     public function showLearningPath(LearningPath $learningPath)
     {
         // Verificar que la ruta pertenezca al usuario autenticado
-        if ($learningPath->user_id !== auth()->id()) {
+        if ($learningPath->user_id !== Auth::id()) {
             abort(403);
         }
 
@@ -175,7 +175,7 @@ class ContentController extends Controller
 
     public function recommendations()
     {
-        $recommendations = Recommendation::where('user_id', auth()->id())
+        $recommendations = Recommendation::where('user_id', Auth::id())
             ->with('content')
             ->orderBy('priority')
             ->orderBy('created_at', 'desc')
@@ -187,7 +187,7 @@ class ContentController extends Controller
     public function markRecommendationViewed(Recommendation $recommendation)
     {
         // Verificar que la recomendación pertenezca al usuario
-        if ($recommendation->user_id !== auth()->id()) {
+        if ($recommendation->user_id !== Auth::id()) {
             abort(403);
         }
 
