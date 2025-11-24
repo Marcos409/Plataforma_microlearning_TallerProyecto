@@ -773,4 +773,400 @@ class UsuarioModel extends BaseModel
         
         return $usuario;
     }
+
+    // ==========================================
+    /**
+ * Registrar actividad del usuario
+ */
+public function registrarActividad($userId, $accion, $modulo = null)
+{
+    try {
+        $stmt = $this->pdo->prepare("
+            INSERT INTO system_usage_logs 
+            (user_id, action, module, ip_address, user_agent, created_at)
+            VALUES (?, ?, ?, ?, ?, NOW())
+        ");
+        
+        return $stmt->execute([
+            $userId,
+            $accion,
+            $modulo,
+            $_SERVER['REMOTE_ADDR'] ?? null,
+            $_SERVER['HTTP_USER_AGENT'] ?? null
+        ]);
+    } catch (\PDOException $e) {
+        error_log("Error registrando actividad: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Obtener estadísticas de uso por usuario
+ */
+public function obtenerEstadisticasUso($userId, $dias = 30)
+{
+    try {
+        $stmt = $this->pdo->prepare("
+            SELECT 
+                DATE(created_at) as fecha,
+                COUNT(*) as total_acciones,
+                COUNT(DISTINCT module) as modulos_usados,
+                MIN(created_at) as primera_actividad,
+                MAX(created_at) as ultima_actividad
+            FROM system_usage_logs
+            WHERE user_id = ?
+            AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+            GROUP BY DATE(created_at)
+            ORDER BY fecha DESC
+        ");
+        
+        $stmt->execute([$userId, $dias]);
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    } catch (\PDOException $e) {
+        error_log("Error obteniendo estadísticas: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Obtener tiempo promedio en plataforma
+ */
+public function obtenerTiempoPromedioPlataforma($userId)
+{
+    try {
+        $stmt = $this->pdo->prepare("
+            SELECT 
+                COUNT(DISTINCT DATE(created_at)) as dias_activos,
+                COUNT(*) as total_acciones,
+                ROUND(COUNT(*) / COUNT(DISTINCT DATE(created_at)), 2) as acciones_por_dia
+            FROM system_usage_logs
+            WHERE user_id = ?
+            AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        ");
+        
+        $stmt->execute([$userId]);
+        return $stmt->fetch(\PDO::FETCH_ASSOC);
+    } catch (\PDOException $e) {
+        error_log("Error calculando tiempo: " . $e->getMessage());
+        return null;
+    }
+}
+/**
+ * Obtener estudiantes por grupo (carrera y semestre)
+ */
+public function obtenerEstudiantesPorGrupo($carrera = null, $semestre = null)
+{
+    try {
+        // Se mantiene SELECT * para no romper la compatibilidad, 
+        // asumiendo que la columna 'last_login_at' o 'updated_at' sí está en la tabla.
+        $sql = "SELECT * FROM users WHERE role_id = 3"; 
+        $params = [];
+        
+        if ($carrera) {
+            $sql .= " AND career = ?";
+            $params[] = $carrera;
+        }
+        
+        if ($semestre) {
+            $sql .= " AND semester = ?";
+            $params[] = $semestre;
+        }
+        
+        $sql .= " ORDER BY name ASC";
+        
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    } catch (\PDOException $e) {
+        error_log("Error obteniendo estudiantes por grupo: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Obtener lista de carreras disponibles
+ */
+public function obtenerCarreras()
+{
+    try {
+        $stmt = $this->pdo->query("
+            SELECT DISTINCT career 
+            FROM users 
+            WHERE role_id = 3 
+            AND career IS NOT NULL 
+            AND career != ''
+            ORDER BY career ASC
+        ");
+        
+        return $stmt->fetchAll(\PDO::FETCH_COLUMN);
+    } catch (\PDOException $e) {
+        error_log("Error obteniendo carreras: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Obtener lista de semestres disponibles
+ */
+public function obtenerSemestres()
+{
+    try {
+        $stmt = $this->pdo->query("
+            SELECT DISTINCT semester 
+            FROM users 
+            WHERE role_id = 3 
+            AND semester IS NOT NULL
+            ORDER BY semester ASC
+        ");
+        
+        return $stmt->fetchAll(\PDO::FETCH_COLUMN);
+    } catch (\PDOException $e) {
+        error_log("Error obteniendo semestres: " . $e->getMessage());
+        return [];
+    }
+}
+
+// ==========================================
+// MÉTODOS PARA MONITOREO DEL SISTEMA
+// Agregar estos métodos al final de UsuarioModel.php
+// ==========================================
+
+/**
+ * Obtener usuarios activos en las últimas X horas
+ * @param int $hours
+ * @return int
+ */
+public function obtenerUsuariosActivosUltimasHoras($hours = 24)
+{
+    try {
+        $stmt = $this->pdo->prepare("
+            SELECT COUNT(*) as total
+            FROM users
+            WHERE updated_at >= DATE_SUB(NOW(), INTERVAL ? HOUR)
+            AND active = 1
+        ");
+        $stmt->execute([$hours]);
+        
+        $result = $stmt->fetch(\PDO::FETCH_ASSOC);
+        return (int)($result['total'] ?? 0);
+    } catch (\PDOException $e) {
+        error_log("Error en obtenerUsuariosActivosUltimasHoras: " . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Obtener usuarios activos hoy
+ * @return int
+ */
+public function obtenerUsuariosActivosHoy()
+{
+    try {
+        $stmt = $this->pdo->query("
+            SELECT COUNT(*) as total
+            FROM users
+            WHERE DATE(updated_at) = CURDATE()
+            AND active = 1
+        ");
+        
+        $result = $stmt->fetch(\PDO::FETCH_ASSOC);
+        return (int)($result['total'] ?? 0);
+    } catch (\PDOException $e) {
+        error_log("Error en obtenerUsuariosActivosHoy: " . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Obtener usuarios más activos recientes
+ * @param int $limit
+ * @return array
+ */
+public function obtenerUsuariosMasActivos($limit = 10)
+{
+    try {
+        $stmt = $this->pdo->prepare("
+            SELECT 
+                u.id,
+                u.name,
+                u.email,
+                u.role_id,
+                r.name as role_name,
+                u.updated_at as last_activity,
+                u.active,
+                COALESCE((SELECT COUNT(*) 
+                          FROM system_usage_logs 
+                          WHERE user_id = u.id 
+                          AND DATE(created_at) = CURDATE()), 0) as sesiones_hoy
+            FROM users u
+            LEFT JOIN roles r ON u.role_id = r.id
+            WHERE u.active = 1
+            ORDER BY u.updated_at DESC
+            LIMIT ?
+        ");
+        $stmt->execute([$limit]);
+        
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    } catch (\PDOException $e) {
+        error_log("Error en obtenerUsuariosMasActivos: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Obtener actividad por hora del día actual
+ * @return array ['labels' => [...], 'data' => [...]]
+ */
+public function obtenerActividadPorHora()
+{
+    $hours = [];
+    $data = [];
+    
+    try {
+        for ($i = 0; $i < 24; $i++) {
+            $hour = str_pad($i, 2, '0', STR_PAD_LEFT) . ':00';
+            $hours[] = $hour;
+            
+            // Intentar primero con system_usage_logs
+            try {
+                $stmt = $this->pdo->prepare("
+                    SELECT COUNT(DISTINCT user_id) as total
+                    FROM system_usage_logs
+                    WHERE DATE(created_at) = CURDATE()
+                    AND HOUR(created_at) = ?
+                ");
+                $stmt->execute([$i]);
+                $result = $stmt->fetch(\PDO::FETCH_ASSOC);
+                $data[] = (int)($result['total'] ?? 0);
+            } catch (\PDOException $e) {
+                // Si falla, usar tabla users
+                $stmt = $this->pdo->prepare("
+                    SELECT COUNT(*) as total
+                    FROM users
+                    WHERE DATE(updated_at) = CURDATE()
+                    AND HOUR(updated_at) = ?
+                ");
+                $stmt->execute([$i]);
+                $result = $stmt->fetch(\PDO::FETCH_ASSOC);
+                $data[] = (int)($result['total'] ?? 0);
+            }
+        }
+    } catch (\PDOException $e) {
+        error_log("Error en obtenerActividadPorHora: " . $e->getMessage());
+        return ['labels' => [], 'data' => []];
+    }
+    
+    return [
+        'labels' => $hours,
+        'data' => $data
+    ];
+}
+
+/**
+ * Obtener actividad semanal
+ * @return array ['labels' => [...], 'data' => [...]]
+ */
+public function obtenerActividadSemanal()
+{
+    $labels = [];
+    $data = [];
+    $daysOfWeek = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    
+    try {
+        for ($i = 6; $i >= 0; $i--) {
+            $date = date('Y-m-d', strtotime("-$i days"));
+            $dayOfWeek = date('w', strtotime($date));
+            $labels[] = $daysOfWeek[$dayOfWeek];
+            
+            // Intentar primero con system_usage_logs
+            try {
+                $stmt = $this->pdo->prepare("
+                    SELECT COUNT(DISTINCT user_id) as total
+                    FROM system_usage_logs
+                    WHERE DATE(created_at) = ?
+                ");
+                $stmt->execute([$date]);
+                $result = $stmt->fetch(\PDO::FETCH_ASSOC);
+                $data[] = (int)($result['total'] ?? 0);
+            } catch (\PDOException $e) {
+                // Si falla, usar tabla users
+                $stmt = $this->pdo->prepare("
+                    SELECT COUNT(*) as total
+                    FROM users
+                    WHERE DATE(updated_at) = ?
+                ");
+                $stmt->execute([$date]);
+                $result = $stmt->fetch(\PDO::FETCH_ASSOC);
+                $data[] = (int)($result['total'] ?? 0);
+            }
+        }
+    } catch (\PDOException $e) {
+        error_log("Error en obtenerActividadSemanal: " . $e->getMessage());
+        return ['labels' => [], 'data' => []];
+    }
+    
+    return [
+        'labels' => $labels,
+        'data' => $data
+    ];
+}
+
+/**
+ * Obtener estadísticas de monitoreo completas
+ * @return array
+ */
+public function obtenerEstadisticasMonitoreo()
+{
+    $estadisticasGenerales = $this->obtenerEstadisticasGenerales();
+    
+    return [
+        'usuarios_activos_24h' => $this->obtenerUsuariosActivosUltimasHoras(24),
+        'usuarios_activos_hoy' => $this->obtenerUsuariosActivosHoy(),
+        'total_usuarios' => $estadisticasGenerales['total_usuarios'],
+        'total_estudiantes' => $estadisticasGenerales['total_estudiantes'],
+        'total_docentes' => $estadisticasGenerales['total_docentes'],
+        'total_admins' => $estadisticasGenerales['total_admins'],
+        'usuarios_activos' => $estadisticasGenerales['usuarios_activos'],
+        'usuarios_inactivos' => $estadisticasGenerales['usuarios_inactivos']
+    ];
+}
+/**
+ * Obtener la cantidad de estudiantes activos en los últimos 30 días
+ * (Un estudiante se considera activo si su 'updated_at' es reciente)
+ * @param string|null $career Opcional: filtrar por carrera
+ * @param int|null $semester Opcional: filtrar por semestre
+ * @return int
+ */
+public function contarEstudiantesActivos30Dias($career = null, $semester = null)
+{
+    $sql = "
+        SELECT COUNT(DISTINCT u.id) as total_activos
+        FROM users u
+        WHERE 
+            u.role_id = 3 
+            AND u.updated_at >= NOW() - INTERVAL 30 DAY
+    ";
+    $params = [];
+    
+    if ($career) {
+        $sql .= " AND u.career = ?";
+        $params[] = $career;
+    }
+    if ($semester) {
+        $sql .= " AND u.semester = ?";
+        $params[] = $semester;
+    }
+
+    try {
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        $result = $stmt->fetch(\PDO::FETCH_ASSOC);
+        return (int)($result['total_activos'] ?? 0);
+    } catch (\PDOException $e) {
+        error_log("Error en contarEstudiantesActivos30Dias: " . $e->getMessage());
+        return 0;
+    }
+}
+
 }

@@ -125,7 +125,7 @@
                     <h5 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Rendimiento Mensual (Últimos 6 Meses)</h5>
                 </div>
                 <div class="card-body">
-                    @if($performanceByMonth->count() > 0)
+                    @if(count($performanceByMonth) > 0)
                     <div class="table-responsive">
                         <table class="table table-bordered">
                             <thead class="table-light">

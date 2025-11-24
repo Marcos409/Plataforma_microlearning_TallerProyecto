@@ -567,4 +567,103 @@ class RiskAlertModel extends BaseModel
         
         return $estudiantes;
     }
+
+    // ==========================================
+    /**
+ * Generar alerta de riesgo automática
+ */
+public function generarAlertaAutomatica($userId)
+{
+    try {
+        // Calcular nivel de riesgo
+        $stmt = $this->pdo->prepare("
+            SELECT 
+                u.id,
+                u.name,
+                u.email,
+                AVG(dr.score) as avg_score,
+                COUNT(dr.id) as total_diagnostics,
+                DATEDIFF(NOW(), MAX(u.last_login_at)) as dias_inactivo
+            FROM users u
+            LEFT JOIN diagnostic_responses dr ON u.id = dr.user_id
+            WHERE u.id = ?
+            GROUP BY u.id
+        ");
+        
+        $stmt->execute([$userId]);
+        $data = $stmt->fetch(\PDO::FETCH_ASSOC);
+        
+        if (!$data) return null;
+        
+        $riskLevel = 0;
+        $reasons = [];
+        
+        // Evaluar factores de riesgo
+        if ($data['avg_score'] < 50 && $data['avg_score'] > 0) {
+            $riskLevel += 3;
+            $reasons[] = 'Promedio bajo (' . round($data['avg_score']) . '%)';
+        }
+        
+        if ($data['dias_inactivo'] > 14) {
+            $riskLevel += 2;
+            $reasons[] = 'Inactividad de ' . $data['dias_inactivo'] . ' días';
+        }
+        
+        if ($data['total_diagnostics'] < 3) {
+            $riskLevel += 1;
+            $reasons[] = 'Baja participación';
+        }
+        
+        // Si hay riesgo, crear alerta
+        if ($riskLevel >= 2) {
+            $stmt = $this->pdo->prepare("
+                INSERT INTO risk_alerts 
+                (user_id, risk_level, reasons, status, created_at)
+                VALUES (?, ?, ?, 'pending', NOW())
+            ");
+            
+            $stmt->execute([
+                $userId,
+                $riskLevel >= 4 ? 'critico' : ($riskLevel >= 3 ? 'alto' : 'medio'),
+                json_encode($reasons)
+            ]);
+            
+            return [
+                'user_id' => $userId,
+                'risk_level' => $riskLevel,
+                'reasons' => $reasons
+            ];
+        }
+        
+        return null;
+        
+    } catch (\PDOException $e) {
+        error_log("Error generando alerta: " . $e->getMessage());
+        return null;
+    }
+}
+
+/**
+ * Obtener alertas pendientes
+ */
+public function obtenerAlertasPendientes()
+{
+    try {
+        $stmt = $this->pdo->query("
+            SELECT 
+                ra.*,
+                u.name,
+                u.email
+            FROM risk_alerts ra
+            JOIN users u ON ra.user_id = u.id
+            WHERE ra.status = 'pending'
+            ORDER BY ra.risk_level DESC, ra.created_at DESC
+        ");
+        
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    } catch (\PDOException $e) {
+        error_log("Error obteniendo alertas: " . $e->getMessage());
+        return [];
+    }
+}
 }

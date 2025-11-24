@@ -119,9 +119,9 @@
                             <div class="col-md-2 text-center">
                                 <small class="text-muted d-block">Último acceso</small>
                                 @if($student->last_activity)
-                                    <strong>{{ $student->last_activity->diffForHumans() }}</strong>
+                                    {{ \Carbon\Carbon::parse($student->last_activity)->diffForHumans() }}
                                 @else
-                                    <strong class="text-danger">Nunca</strong>
+                                    <span class="text-muted">Sin actividad</span>
                                 @endif
                             </div>
 
@@ -140,8 +140,8 @@
                                 <small class="text-muted">Promedio General:</small>
                                 <div class="progress mt-1" style="height: 20px;">
                                     @php
-                                        $totalResponses = $student->diagnosticResponses->count();
-                                        $correctResponses = $student->diagnosticResponses->where('is_correct', true)->count();
+                                        $totalResponses = $student->diagnosticResponses ?? 0;
+                                        $correctResponses = $student->correct_responses ?? 0;
                                         $avg = $totalResponses > 0 ? round(($correctResponses / $totalResponses) * 100) : 0;
                                         $color = $avg >= 70 ? 'success' : ($avg >= 50 ? 'warning' : 'danger');
                                     @endphp
@@ -152,11 +152,11 @@
                             </div>
                             <div class="col-md-4 text-center">
                                 <small class="text-muted d-block">Diagnósticos Completados</small>
-                                <strong class="fs-5">{{ $student->diagnosticResponses->pluck('diagnostic_id')->unique()->count() }}</strong>
+                                <strong class="fs-5">{{ $student->total_diagnostics ?? 0 }}</strong>
                             </div>
                             <div class="col-md-4 text-center">
                                 <small class="text-muted d-block">Actividades Completadas</small>
-                                <strong class="fs-5">{{ $student->getCompletedActivitiesCount() }}</strong>
+                                <strong class="fs-5">{{ $student->completed_activities ?? 0 }}</strong>
                             </div>
                         </div>
 

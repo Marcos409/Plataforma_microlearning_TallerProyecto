@@ -99,8 +99,8 @@
                                         </span>
                                     </td>
                                     <td>
-                                        @if($student->last_login_at)
-                                            <small>{{ $student->last_login_at->diffForHumans() }}</small>
+                                        @if(isset($student->last_login_at) && $student->last_login_at)
+                                            <small>{{ \Carbon\Carbon::parse($student->last_login_at)->diffForHumans() }}</small>
                                         @else
                                             <small class="text-muted">Nunca</small>
                                         @endif

@@ -714,4 +714,100 @@ class RecomendacionModel extends BaseModel
             ]
         ];
     }
+    // ==========================================
+    /**
+ * Generar recomendaciones personalizadas
+ */
+public function generarRecomendaciones($userId, $limit = 5)
+{
+    $recomendaciones = [];
+    
+    try {
+        // 1. Obtener áreas débiles del usuario
+        $stmt = $this->pdo->prepare("
+            SELECT 
+                dq.subject_area,
+                AVG(CASE WHEN dr.is_correct = 1 THEN 100 ELSE 0 END) as avg_score
+            FROM diagnostic_responses dr
+            JOIN diagnostic_questions dq ON dr.question_id = dq.id
+            WHERE dr.user_id = ?
+            GROUP BY dq.subject_area
+            HAVING avg_score < 60
+            ORDER BY avg_score ASC
+        ");
+        $stmt->execute([$userId]);
+        $areasDebiles = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        
+        // 2. Recomendar contenidos para áreas débiles
+        if (!empty($areasDebiles)) {
+            foreach ($areasDebiles as $area) {
+                $stmt = $this->pdo->prepare("
+                    SELECT 
+                        c.*,
+                        'area_debil' as razon,
+                        ? as area_objetivo
+                    FROM contents c
+                    WHERE c.subject_area = ?
+                    AND c.active = 1
+                    AND c.difficulty_level IN ('basico', 'intermedio')
+                    AND c.id NOT IN (
+                        SELECT content_id FROM content_views WHERE user_id = ?
+                    )
+                    ORDER BY c.views DESC
+                    LIMIT 2
+                ");
+                
+                $stmt->execute([$area['subject_area'], $area['subject_area'], $userId]);
+                $contenidos = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+                $recomendaciones = array_merge($recomendaciones, $contenidos);
+            }
+        }
+        
+        // 3. Contenidos populares no vistos
+        $stmt = $this->pdo->prepare("
+            SELECT 
+                c.*,
+                'popular' as razon,
+                NULL as area_objetivo
+            FROM contents c
+            WHERE c.active = 1
+            AND c.id NOT IN (
+                SELECT content_id FROM content_views WHERE user_id = ?
+            )
+            ORDER BY c.views DESC
+            LIMIT ?
+        ");
+        $stmt->execute([$userId, $limit - count($recomendaciones)]);
+        $populares = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        $recomendaciones = array_merge($recomendaciones, $populares);
+        
+        // Limitar y retornar
+        return array_slice($recomendaciones, 0, $limit);
+        
+    } catch (\PDOException $e) {
+        error_log("Error generando recomendaciones: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Guardar recomendación
+ */
+public function guardarRecomendacion($userId, $contentId, $razon, $score = 1.0)
+{
+    try {
+        $stmt = $this->pdo->prepare("
+            INSERT INTO content_recommendations 
+            (user_id, content_id, reason, score, created_at)
+            VALUES (?, ?, ?, ?, NOW())
+        ");
+        
+        return $stmt->execute([$userId, $contentId, $razon, $score]);
+    } catch (\PDOException $e) {
+        error_log("Error guardando recomendación: " . $e->getMessage());
+        return false;
+    }
+}
+
+
 }

@@ -10,6 +10,7 @@ use App\DataAccessModels\ProgresoModel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 
 class DashboardController extends Controller
@@ -265,22 +266,268 @@ class DashboardController extends Controller
         return redirect()->route('admin.reports.index')
             ->with('success', 'Reporte generado exitosamente. (Función en desarrollo)');
     }
-
+// ==================== Monitoreo ====================
+    
     /**
-     * Monitoreo del sistema
-     */
-    public function systemMonitoring()
-    {
-        return view('admin.monitoring.index');
-    }
+ * Monitoreo del sistema
+ * AGREGAR ESTOS MÉTODOS a tu AdminDashboardController.php
+ */
 
-    /**
-     * Estadísticas de uso
-     */
-    public function usageStats()
-    {
-        return view('admin.monitoring.usage');
+public function systemMonitoring()
+{
+    // Estadísticas principales
+    $stats = [
+        'usuarios_activos' => $this->contarUsuariosActivos(24), // Últimas 24 horas
+        'sesiones_hoy' => $this->contarSesionesHoy(),
+        'actividades_completadas' => $this->contarActividadesCompletadas(7), // Última semana
+        'tiempo_promedio_sesion' => $this->calcularTiempoPromedioSesion()
+    ];
+    
+    // Usuarios activos recientemente
+    $usuarios_activos = $this->obtenerUsuariosActivos();
+    
+    // Contenido más accedido
+    $contenido_mas_accedido = $this->obtenerContenidoMasAccedido();
+    
+    // Actividad por hora (hoy)
+    $actividad_por_hora = $this->obtenerActividadPorHora();
+    
+    // Distribución de usuarios por rol
+    $distribucion_usuarios = $this->obtenerDistribucionUsuarios();
+    
+    // Actividad semanal
+    $actividad_semanal = $this->obtenerActividadSemanal();
+    
+    return view('admin.monitoring.system-monitoring', compact(
+        'stats',
+        'usuarios_activos',
+        'contenido_mas_accedido',
+        'actividad_por_hora',
+        'distribucion_usuarios',
+        'actividad_semanal'
+    ));
+}
+
+/**
+ * Contar usuarios activos en las últimas X horas
+ */
+private function contarUsuariosActivos($horas = 24)
+{
+    try {
+        return DB::table('users')
+            ->where('last_activity', '>=', now()->subHours($horas))
+            ->where('active', 1)
+            ->count();
+    } catch (\Exception $e) {
+        \Log::error('Error contando usuarios activos: ' . $e->getMessage());
+        return 0;
     }
+}
+
+/**
+ * Contar sesiones de hoy
+ */
+private function contarSesionesHoy()
+{
+    try {
+        return DB::table('users')
+            ->whereDate('last_activity', today())
+            ->where('active', 1)
+            ->count();
+    } catch (\Exception $e) {
+        return 0;
+    }
+}
+
+/**
+ * Contar actividades completadas en los últimos X días
+ */
+private function contarActividadesCompletadas($dias = 7)
+{
+    try {
+        return DB::table('user_progress')
+            ->where('status', 'completed')
+            ->where('updated_at', '>=', now()->subDays($dias))
+            ->count();
+    } catch (\Exception $e) {
+        return 0;
+    }
+}
+
+/**
+ * Calcular tiempo promedio de sesión (en minutos)
+ */
+private function calcularTiempoPromedioSesion()
+{
+    try {
+        $avg = DB::table('user_progress')
+            ->where('created_at', '>=', now()->subDays(7))
+            ->avg('time_spent');
+        
+        return $avg ? round($avg / 60, 0) : 0; // Convertir segundos a minutos
+    } catch (\Exception $e) {
+        return 0;
+    }
+}
+
+/**
+ * Obtener usuarios activos con detalles
+ */
+private function obtenerUsuariosActivos()
+{
+    try {
+        return DB::table('users')
+            ->leftJoin('roles', 'users.role_id', '=', 'roles.id')
+            ->select(
+                'users.id',
+                'users.name',
+                'users.email',
+                'users.last_activity',
+                'roles.name as role_name'
+            )
+            ->where('users.last_activity', '>=', now()->subHours(24))
+            ->where('users.active', 1)
+            ->orderBy('users.last_activity', 'desc')
+            ->limit(20)
+            ->get()
+            ->map(function($user) {
+                // Agregar datos adicionales
+                $user->sesiones_hoy = DB::table('users')
+                    ->where('id', $user->id)
+                    ->whereDate('last_activity', today())
+                    ->count();
+                
+                $user->tiempo_total = 0; // Aquí podrías calcular el tiempo total si tienes una tabla de sesiones
+                
+                return $user;
+            });
+    } catch (\Exception $e) {
+        \Log::error('Error obteniendo usuarios activos: ' . $e->getMessage());
+        return collect([]);
+    }
+}
+
+/**
+ * Obtener contenido más accedido
+ */
+private function obtenerContenidoMasAccedido()
+{
+    try {
+        return DB::table('learning_contents')
+            ->select('id', 'title', 'content_type', 'views')
+            ->where('active', 1)
+            ->orderBy('views', 'desc')
+            ->limit(10)
+            ->get();
+    } catch (\Exception $e) {
+        return collect([]);
+    }
+}
+
+/**
+ * Obtener actividad por hora del día actual
+ */
+private function obtenerActividadPorHora()
+{
+    try {
+        $labels = [];
+        $data = [];
+        
+        for ($hora = 0; $hora < 24; $hora++) {
+            $labels[] = sprintf('%02d:00', $hora);
+            
+            $count = DB::table('users')
+                ->whereDate('last_activity', today())
+                ->whereRaw('HOUR(last_activity) = ?', [$hora])
+                ->count();
+            
+            $data[] = $count;
+        }
+        
+        return [
+            'labels' => $labels,
+            'data' => $data
+        ];
+    } catch (\Exception $e) {
+        return [
+            'labels' => range(0, 23),
+            'data' => array_fill(0, 24, 0)
+        ];
+    }
+}
+
+/**
+ * Obtener distribución de usuarios por rol
+ */
+private function obtenerDistribucionUsuarios()
+{
+    try {
+        $estudiantes = DB::table('users')->where('role_id', 3)->where('active', 1)->count();
+        $profesores = DB::table('users')->where('role_id', 2)->where('active', 1)->count();
+        $admins = DB::table('users')->where('role_id', 1)->where('active', 1)->count();
+        
+        return [$estudiantes, $profesores, $admins];
+    } catch (\Exception $e) {
+        return [0, 0, 0];
+    }
+}
+
+/**
+ * Obtener actividad semanal
+ */
+private function obtenerActividadSemanal()
+{
+    try {
+        $labels = [];
+        $data = [];
+        
+        for ($i = 6; $i >= 0; $i--) {
+            $fecha = now()->subDays($i);
+            $labels[] = $fecha->locale('es')->dayName;
+            
+            $count = DB::table('user_progress')
+                ->whereDate('created_at', $fecha)
+                ->count();
+            
+            $data[] = $count;
+        }
+        
+        return [
+            'labels' => $labels,
+            'data' => $data
+        ];
+    } catch (\Exception $e) {
+        return [
+            'labels' => ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+            'data' => [0, 0, 0, 0, 0, 0, 0]
+        ];
+    }
+}
+
+/**
+ * Estadísticas de uso detalladas
+ */
+public function usageStats()
+{
+    // Métricas adicionales más detalladas
+    $stats = [
+        'total_usuarios' => DB::table('users')->where('active', 1)->count(),
+        'usuarios_nuevos_mes' => DB::table('users')
+            ->where('created_at', '>=', now()->startOfMonth())
+            ->count(),
+        'sesiones_totales' => DB::table('users')
+            ->where('last_activity', '>=', now()->subMonth())
+            ->count(),
+        'contenido_completado' => DB::table('user_progress')
+            ->where('status', 'completed')
+            ->count(),
+        'tiempo_total_plataforma' => DB::table('user_progress')
+            ->sum('time_spent') / 3600, // Horas
+    ];
+    
+    return view('admin.monitoring.usage-stats', compact('stats'));
+}
+    
 
     // ==================== MÉTODOS AUXILIARES ====================
 

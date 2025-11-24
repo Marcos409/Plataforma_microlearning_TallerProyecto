@@ -1,12 +1,20 @@
--- database/01_create_tables.sql
+-- =============================================
+-- 01_SCRIPT_CREACION_REESTRUCTURADO.SQL
+-- Esquema de Tablas, Vistas e Índices - Microlearning UC
+-- Versión: 1.1 - Noviembre 2025
+-- =============================================
 
--- Eliminar base de datos si existe
+-- ========================================
+-- 0. CONFIGURACIÓN DE LA BASE DE DATOS
+-- ========================================
+
+-- Eliminar base de datos si existe y crearla
 DROP DATABASE IF EXISTS `bd_microlearning_uc`;
 CREATE DATABASE `bd_microlearning_uc`;
 USE `bd_microlearning_uc`;
 
 -- ========================================
--- TABLAS BÁSICAS
+-- 1. TABLAS DE AUTENTICACIÓN Y USUARIOS
 -- ========================================
 
 -- Tabla: roles
@@ -17,9 +25,9 @@ CREATE TABLE roles (
     `created_at` TIMESTAMP NULL,
     `updated_at` TIMESTAMP NULL,
     PRIMARY KEY (`id`)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Tabla: users
+-- Tabla: users (Estudiantes, Docentes, Administradores)
 CREATE TABLE users (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(255) NOT NULL,
@@ -41,7 +49,7 @@ CREATE TABLE users (
     KEY `idx_users_email` (`email`),
     KEY `idx_users_student_code` (`student_code`),
     KEY `idx_users_active` (`active`)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Tabla: password_reset_tokens
 CREATE TABLE password_reset_tokens (
@@ -49,7 +57,7 @@ CREATE TABLE password_reset_tokens (
     `token` VARCHAR(255) NOT NULL,
     `created_at` TIMESTAMP NULL,
     PRIMARY KEY (`email`)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Tabla: sessions
 CREATE TABLE sessions (
@@ -62,7 +70,11 @@ CREATE TABLE sessions (
     PRIMARY KEY (`id`),
     KEY `sessions_user_id_index` (`user_id`),
     KEY `sessions_last_activity_index` (`last_activity`)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ========================================
+-- 2. TABLAS DE CONTENIDO Y PROGRESO
+-- ========================================
 
 -- Tabla: content_library
 CREATE TABLE content_library (
@@ -85,9 +97,9 @@ CREATE TABLE content_library (
     KEY `content_type_index` (`type`),
     KEY `content_difficulty_index` (`difficulty_level`),
     KEY `idx_content_active` (`active`)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Tabla: student_progress
+-- Tabla: student_progress (Progreso por área del estudiante)
 CREATE TABLE student_progress (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     `user_id` BIGINT UNSIGNED NOT NULL,
@@ -107,46 +119,9 @@ CREATE TABLE student_progress (
     KEY `progress_user_subject_index` (`user_id`, `subject_area`),
     KEY `progress_last_activity_index` (`last_activity`),
     KEY `idx_progress_user_updated` (`user_id`, `updated_at`)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Tabla: learning_paths
-CREATE TABLE learning_paths (
-    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    `user_id` BIGINT UNSIGNED NOT NULL,
-    `subject_area` VARCHAR(100) NOT NULL,
-    `name` VARCHAR(255) NOT NULL,
-    `description` TEXT NULL,
-    `difficulty_level` ENUM('Básico', 'Intermedio', 'Avanzado') NOT NULL,
-    `estimated_duration` INT NULL,
-    `progress_percentage` DECIMAL(5,2) DEFAULT 0.00,
-    `is_completed` BOOLEAN DEFAULT 0,
-    `completed_at` TIMESTAMP NULL,
-    `created_at` TIMESTAMP NULL,
-    `updated_at` TIMESTAMP NULL,
-    PRIMARY KEY (`id`),
-    FOREIGN KEY (`user_id`) REFERENCES users(`id`) ON DELETE CASCADE,
-    KEY `learning_paths_user_index` (`user_id`)
-);
-
--- Tabla: learning_path_content
-CREATE TABLE learning_path_content (
-    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    `learning_path_id` BIGINT UNSIGNED NOT NULL,
-    `content_id` BIGINT UNSIGNED NOT NULL,
-    `order_index` INT NOT NULL DEFAULT 0,
-    `is_required` BOOLEAN DEFAULT 1,
-    `is_completed` BOOLEAN DEFAULT 0,
-    `completed_at` TIMESTAMP NULL,
-    `time_spent` INT DEFAULT 0,
-    `created_at` TIMESTAMP NULL,
-    `updated_at` TIMESTAMP NULL,
-    PRIMARY KEY (`id`),
-    FOREIGN KEY (`learning_path_id`) REFERENCES learning_paths(`id`) ON DELETE CASCADE,
-    FOREIGN KEY (`content_id`) REFERENCES content_library(`id`) ON DELETE CASCADE,
-    KEY `lpc_path_order_index` (`learning_path_id`, `order_index`)
-);
-
--- Tabla: recommendations
+-- Tabla: recommendations (Recomendaciones de contenido)
 CREATE TABLE recommendations (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     `user_id` BIGINT UNSIGNED NOT NULL,
@@ -165,9 +140,58 @@ CREATE TABLE recommendations (
     FOREIGN KEY (`content_id`) REFERENCES content_library(`id`) ON DELETE CASCADE,
     KEY `recommendations_user_priority_index` (`user_id`, `priority`),
     KEY `idx_recommendations_user_viewed` (`user_id`, `is_viewed`)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Tabla: diagnostics
+-- ========================================
+-- 3. TABLAS DE RUTAS DE APRENDIZAJE
+-- ========================================
+
+-- Tabla: learning_paths (Rutas de aprendizaje personalizadas)
+CREATE TABLE learning_paths (
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `user_id` BIGINT UNSIGNED NOT NULL,
+    `subject_area` VARCHAR(100) NOT NULL,
+    `name` VARCHAR(255) NOT NULL,
+    `description` TEXT NULL,
+    `difficulty_level` ENUM('Básico', 'Intermedio', 'Avanzado') NOT NULL,
+    `estimated_duration` INT NULL,
+    `progress_percentage` DECIMAL(5,2) DEFAULT 0.00,
+    `is_completed` BOOLEAN DEFAULT 0,
+    `completed_at` TIMESTAMP NULL,
+    `created_at` TIMESTAMP NULL,
+    `updated_at` TIMESTAMP NULL,
+    PRIMARY KEY (`id`),
+    FOREIGN KEY (`user_id`) REFERENCES users(`id`) ON DELETE CASCADE,
+    KEY `learning_paths_user_index` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Tabla: learning_path_content (Contenidos dentro de una ruta)
+-- **Nota**: Se consolidó la definición de las dos tablas de contenidos de ruta encontradas.
+CREATE TABLE learning_path_content (
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `learning_path_id` BIGINT UNSIGNED NOT NULL,
+    `content_id` BIGINT UNSIGNED NOT NULL,
+    `order_index` INT NOT NULL DEFAULT 0,
+    `is_required` BOOLEAN DEFAULT 1,
+    `is_completed` BOOLEAN DEFAULT 0,
+    `completed_at` TIMESTAMP NULL,
+    `time_spent` INT DEFAULT 0,
+    `created_at` TIMESTAMP NULL,
+    `updated_at` TIMESTAMP NULL,
+    PRIMARY KEY (`id`),
+    -- Asegura que un contenido solo esté una vez por ruta
+    UNIQUE KEY `path_content_unique` (`learning_path_id`, `content_id`), 
+    FOREIGN KEY (`learning_path_id`) REFERENCES learning_paths(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`content_id`) REFERENCES content_library(`id`) ON DELETE CASCADE,
+    KEY `lpc_path_order_index` (`learning_path_id`, `order_index`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+-- ========================================
+-- 4. TABLAS DE DIAGNÓSTICOS Y RESULTADOS
+-- ========================================
+
+-- Tabla: diagnostics (Exámenes o cuestionarios de diagnóstico)
 CREATE TABLE diagnostics (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     `title` VARCHAR(255) NOT NULL,
@@ -181,7 +205,7 @@ CREATE TABLE diagnostics (
     `updated_at` TIMESTAMP NULL,
     PRIMARY KEY (`id`),
     KEY `diagnostics_subject_index` (`subject_area`)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Tabla: diagnostic_questions
 CREATE TABLE diagnostic_questions (
@@ -198,9 +222,9 @@ CREATE TABLE diagnostic_questions (
     PRIMARY KEY (`id`),
     FOREIGN KEY (`diagnostic_id`) REFERENCES diagnostics(`id`) ON DELETE CASCADE,
     KEY `dq_diagnostic_order_index` (`diagnostic_id`, `order_index`)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Tabla: diagnostic_responses
+-- Tabla: diagnostic_responses (Respuestas individuales de los usuarios a las preguntas)
 CREATE TABLE diagnostic_responses (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     `user_id` BIGINT UNSIGNED NOT NULL,
@@ -217,9 +241,9 @@ CREATE TABLE diagnostic_responses (
     FOREIGN KEY (`diagnostic_id`) REFERENCES diagnostics(`id`) ON DELETE CASCADE,
     FOREIGN KEY (`question_id`) REFERENCES diagnostic_questions(`id`) ON DELETE CASCADE,
     KEY `dr_user_diagnostic_index` (`user_id`, `diagnostic_id`)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Tabla: diagnostic_results
+-- Tabla: diagnostic_results (Resumen de la prueba completada)
 CREATE TABLE diagnostic_results (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     `user_id` BIGINT UNSIGNED NOT NULL,
@@ -239,47 +263,14 @@ CREATE TABLE diagnostic_results (
     FOREIGN KEY (`diagnostic_id`) REFERENCES diagnostics(`id`) ON DELETE CASCADE,
     KEY `dr_user_index` (`user_id`),
     KEY `dr_diagnostic_index` (`diagnostic_id`)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ========================================
--- VISTAS
+-- 5. TABLAS DE RIESGO, SEGUIMIENTO Y ML
 -- ========================================
 
-CREATE VIEW user_stats_by_role AS
-SELECT 
-    r.name as role_name,
-    COUNT(u.id) as total_users,
-    COUNT(CASE WHEN u.active = 1 THEN 1 END) as active_users,
-    COUNT(CASE WHEN u.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 END) as new_this_month
-FROM roles r
-LEFT JOIN users u ON r.id = u.role_id
-GROUP BY r.id, r.name;
-
-CREATE VIEW student_progress_summary AS
-SELECT 
-    u.id as user_id,
-    u.name as student_name,
-    u.email,
-    u.career,
-    u.semester,
-    COUNT(sp.id) as subjects_enrolled,
-    AVG(sp.progress_percentage) as avg_progress,
-    SUM(sp.total_time_spent) as total_study_time,
-    MAX(sp.last_activity) as last_activity_date
-FROM users u
-LEFT JOIN student_progress sp ON u.id = sp.user_id
-WHERE u.role_id = 3 AND u.active = 1
-GROUP BY u.id, u.name, u.email, u.career, u.semester;
-
--- =============================================
--- TABLA Y STORED PROCEDURES PARA SEGUIMIENTOS
--- =============================================
-USE `bd_microlearning_uc`;
-
--- =============================================
--- CREAR TABLA FOLLOW_UPS (si no existe)
--- =============================================
-CREATE TABLE IF NOT EXISTS `follow_ups` (
+-- Tabla: follow_ups (Seguimiento de interacción Docente/Admin - Estudiante)
+CREATE TABLE follow_ups (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     `user_id` BIGINT UNSIGNED NOT NULL,
     `admin_id` BIGINT UNSIGNED NOT NULL,
@@ -299,8 +290,8 @@ CREATE TABLE IF NOT EXISTS `follow_ups` (
     KEY `idx_follow_ups_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Crear tabla ml_analysis
-CREATE TABLE IF NOT EXISTS `ml_analysis` (
+-- Tabla: ml_analysis (Resultados del análisis de Machine Learning)
+CREATE TABLE ml_analysis (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     `user_id` BIGINT UNSIGNED NOT NULL,
     `diagnostico` VARCHAR(50) NULL COMMENT 'basico, intermedio, avanzado',
@@ -318,9 +309,8 @@ CREATE TABLE IF NOT EXISTS `ml_analysis` (
     KEY `idx_ml_created` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-USE `bd_microlearning_uc`;
-
-CREATE TABLE IF NOT EXISTS `risk_predictions` (
+-- Tabla: risk_predictions (Predicciones de riesgo de abandono/bajo rendimiento)
+CREATE TABLE risk_predictions (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     `user_id` BIGINT UNSIGNED NOT NULL,
     `nivel_riesgo` VARCHAR(50) NOT NULL, -- bajo, medio, alto
@@ -335,8 +325,8 @@ CREATE TABLE IF NOT EXISTS `risk_predictions` (
     FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Ejecutar este script después de risk_predictions
-CREATE TABLE IF NOT EXISTS `risk_alerts` (
+-- Tabla: risk_alerts (Alertas de riesgo generadas por las predicciones)
+CREATE TABLE risk_alerts (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     `user_id` BIGINT UNSIGNED NOT NULL,
     `risk_prediction_id` BIGINT UNSIGNED NULL,
@@ -351,4 +341,87 @@ CREATE TABLE IF NOT EXISTS `risk_alerts` (
     KEY `idx_risk_alerts_user_resolved_severity` (`user_id`, `is_resolved`, `severity`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-select * from roles;
+-- ========================================
+-- 6. TABLAS DE LOGS Y MONITORIZACIÓN
+-- ========================================
+
+-- Tabla: system_usage_logs (Registro de actividad del sistema)
+CREATE TABLE system_usage_logs (
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `user_id` BIGINT UNSIGNED NOT NULL,
+    `action` VARCHAR(100) NULL COMMENT 'login, logout, content_viewed, etc',
+    `module` VARCHAR(50) NULL COMMENT 'dashboard, content, diagnostic, etc',
+    `ip_address` VARCHAR(45) NULL,
+    `user_agent` TEXT NULL,
+    `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+    KEY `idx_usage_user_date` (`user_id`, `created_at`),
+    KEY `idx_usage_date` (`created_at`),
+    KEY `idx_usage_action` (`action`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ========================================
+-- 7. VISTAS PARA REPORTES Y DASHBOARDS
+-- ========================================
+
+-- Vista: user_stats_by_role (Estadísticas de usuarios por rol)
+CREATE OR REPLACE VIEW user_stats_by_role AS
+SELECT 
+    r.name as role_name,
+    COUNT(u.id) as total_users,
+    COUNT(CASE WHEN u.active = 1 THEN 1 END) as active_users,
+    COUNT(CASE WHEN u.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 END) as new_this_month
+FROM roles r
+LEFT JOIN users u ON r.id = u.role_id
+GROUP BY r.id, r.name;
+
+-- Vista: student_progress_summary (Resumen del progreso del estudiante)
+CREATE OR REPLACE VIEW student_progress_summary AS
+SELECT 
+    u.id as user_id,
+    u.name as student_name,
+    u.email,
+    u.career,
+    u.semester,
+    COUNT(sp.id) as subjects_enrolled,
+    AVG(sp.progress_percentage) as avg_progress,
+    SUM(sp.total_time_spent) as total_study_time,
+    MAX(sp.last_activity) as last_activity_date
+FROM users u
+LEFT JOIN student_progress sp ON u.id = sp.user_id
+WHERE u.role_id = 3 AND u.active = 1
+GROUP BY u.id, u.name, u.email, u.career, u.semester;
+
+-- Vista: v_daily_usage_stats (Estadísticas diarias de uso del sistema)
+CREATE OR REPLACE VIEW `v_daily_usage_stats` AS
+SELECT 
+    DATE(created_at) as fecha,
+    COUNT(DISTINCT user_id) as usuarios_unicos,
+    COUNT(*) as total_acciones,
+    COUNT(CASE WHEN action = 'login' THEN 1 END) as total_logins
+FROM system_usage_logs
+WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+GROUP BY DATE(created_at)
+ORDER BY fecha DESC;
+
+-- Vista: v_hourly_usage_stats (Estadísticas por hora de uso del sistema)
+CREATE OR REPLACE VIEW `v_hourly_usage_stats` AS
+SELECT 
+    DATE(created_at) as fecha,
+    HOUR(created_at) as hora,
+    COUNT(DISTINCT user_id) as usuarios_unicos,
+    COUNT(*) as total_acciones
+FROM system_usage_logs
+WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+GROUP BY DATE(created_at), HOUR(created_at)
+ORDER BY fecha DESC, hora DESC;
+
+-- ========================================
+-- VERIFICACIÓN FINAL
+-- ========================================
+
+SELECT '✓ SCRIPT DE CREACIÓN DE ESQUEMA EJECUTADO CORRECTAMENTE' as status;
+
+-- Ejemplo para ver las tablas creadas
+-- SHOW FULL TABLES IN `bd_microlearning_uc` WHERE Table_Type = 'BASE TABLE';

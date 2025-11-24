@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Models\User;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\AdminUserController;
+use App\Http\Controllers\Student\StudentMLController as StudentMLController;
 use App\Http\Controllers\Student\DiagnosticController as StudentDiagnosticController;
 use App\Http\Controllers\Student\DashboardController as StudentDashboardController;
 use App\Http\Controllers\Student\ContentController as StudentContentController;
@@ -15,8 +16,10 @@ use App\Http\Controllers\Admin\ContentController as AdminContentController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Teacher\DashboardController as TeacherDashboardController;
 use App\Http\Controllers\Teacher\StudentProgressController as TeacherStudentController;
+use App\Http\Controllers\Admin\SystemMonitoringController as SystemMonitoringController;
 use App\Http\Controllers\Admin\FollowUpController;
 use App\Http\Controllers\Admin\ReportController;
+use App\Http\Controllers\AI\RecommendationController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\AI\PredictionController;
 use App\Http\Controllers\Admin\MLAnalysisController;
@@ -85,8 +88,28 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/ml/update-profile', [RecommendationController::class, 'updateProfile'])->name('ml.update-profile');
         });
 
+        // ⭐⭐⭐ AGREGAR AQUÍ LAS RUTAS ML (DENTRO DEL GRUPO DE STUDENT) ⭐⭐⭐
+        Route::prefix('ml')->name('ml.')->group(function () {
+            // Dashboard ML con precisiones
+            Route::get('/ml-dashboard', [StudentMLController::class, 'dashboard'])
+                ->name('ml-dashboard');
+            
+            // API de estadísticas de precisión
+            Route::get('/api/precision-stats', [StudentMLController::class, 'precisionStats'])
+                ->name('api.precision');
+            
+            // ⭐ AGREGAR ESTA RUTA
+            Route::post('/update-profile', [StudentMLController::class, 'updateProfile'])
+            ->name('update-profile');
+        });
     });
 
+    Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+    
+        // Ruta para ver e informe (con descarga integrada)
+        Route::get('/reports/group', [ReportController::class, 'groupReport'])->name('reports.group');
+        
+    });
     // ========================================
     // RUTAS PARA ADMINISTRADORES
     // ========================================
@@ -102,17 +125,18 @@ Route::middleware(['auth'])->group(function () {
         // Gestión de estudiantes (CAMBIADO A PDO)
         // ========================================
         Route::prefix('students')->name('students.')->group(function () {
-            Route::get('/', [AdminStudentController::class, 'index'])->name('index');
-            Route::get('/create', [AdminStudentController::class, 'create'])->name('create');
-            Route::post('/', [AdminStudentController::class, 'store'])->name('store');
-            Route::get('/export', [AdminStudentController::class, 'export'])->name('export');
-            Route::get('/{id}', [AdminStudentController::class, 'show'])->name('show');
-            Route::get('/{id}/edit', [AdminStudentController::class, 'edit'])->name('edit');
-            Route::put('/{id}', [AdminStudentController::class, 'update'])->name('update');
-            Route::delete('/{id}', [AdminStudentController::class, 'destroy'])->name('destroy');
-            Route::get('/{id}/follow-ups', [FollowUpController::class, 'studentFollowUps'])->name('follow-ups');
-        });
+                    Route::get('/', [AdminStudentController::class, 'index'])->name('index');
+                    Route::get('/create', [AdminStudentController::class, 'create'])->name('create');
+                    Route::post('/', [AdminStudentController::class, 'store'])->name('store');
+                    Route::get('/export', [AdminStudentController::class, 'export'])->name('export');
+                    Route::get('/{id}', [AdminStudentController::class, 'show'])->name('show');
+                    Route::get('/{id}/edit', [AdminStudentController::class, 'edit'])->name('edit');
+                    Route::put('/{id}', [AdminStudentController::class, 'update'])->name('update');
+                    Route::delete('/{id}', [AdminStudentController::class, 'destroy'])->name('destroy');
+                    Route::get('/{id}/follow-ups', [FollowUpController::class, 'studentFollowUps'])->name('follow-ups');
+                });
         
+
         // ========================================
         // Gestión completa de usuarios
         // ========================================
@@ -201,13 +225,39 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/progress', [ReportController::class, 'progress'])->name('progress');
             Route::get('/ml-analysis', [ReportController::class, 'mlAnalysis'])->name('ml-analysis');
             
+            // ✅ AGREGAR ESTAS RUTAS FALTANTES:
+            Route::get('/group', [ReportController::class, 'groupReport'])->name('group');
+            Route::get('/group-pdf', [ReportController::class, 'groupReport'])
+                ->defaults('format', 'pdf')
+                ->name('group-pdf'); 
+        
             // Exportaciones
             Route::get('/export/csv', [ReportController::class, 'exportCsv'])->name('export.csv');
             Route::get('/export/pdf', [ReportController::class, 'exportPdf'])->name('export.pdf');
+
+            // ✅ AGREGA ESTA RUTA QUE FALTA:
+            Route::post('/generate', [ReportController::class, 'generateReport'])->name('generate');
             
             // Acciones para estudiantes en riesgo
             Route::post('/send-email/{id}', [AdminDashboardController::class, 'sendEmail'])->name('send-email');
             Route::post('/schedule-followup/{id}', [AdminDashboardController::class, 'scheduleFollowUp'])->name('schedule-followup');
+        
+            Route::get('/admin/reports/group', [ReportController::class, 'groupReport'])
+            ->name('admin.reports.group')
+            ->middleware(['auth', 'role:admin']);
+
+            // Alias para mantener compatibilidad
+            Route::get('/admin/reports/group-pdf', [ReportController::class, 'groupReport'])
+            ->name('admin.reports.group-pdf')
+            ->middleware(['auth', 'role:admin']);
+
+            // ⭐ AGREGAR AQUÍ LAS RUTAS DE RIESGO DE FORMA SIMPLE ⭐
+            // Esta ruta se registrará como: admin.reports.risk-report
+            Route::get('/risk-report', [ReportController::class, 'weeklyRiskReport'])->name('risk-report');
+
+            // Esta ruta se registrará como: admin.reports.risk-report-pdf
+            Route::get('/risk-report-pdf', [ReportController::class, 'weeklyRiskReport'])->name('risk-report-pdf');
+
         });
         
         // ========================================
@@ -230,9 +280,12 @@ Route::middleware(['auth'])->group(function () {
         // Monitoreo del sistema
         // ========================================
         Route::prefix('monitoring')->name('monitoring.')->group(function () {
-            Route::get('/', [AdminDashboardController::class, 'systemMonitoring'])->name('index');
+            // ✅ CONTROLADOR CORREGIDO
+            Route::get('/', [SystemMonitoringController::class, 'index'])->name('system-monitoring'); 
+            
             Route::get('/usage', [AdminDashboardController::class, 'usageStats'])->name('usage');
         });
+
     });
 
     // ========================================
@@ -270,4 +323,6 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/generate-recommendations', [PredictionController::class, 'generateRecommendations'])->name('generate-recommendations');
         Route::post('/update-learning-path', [PredictionController::class, 'updateLearningPath'])->name('update-learning-path');
     });
+
+     
 });

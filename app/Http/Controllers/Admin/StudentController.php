@@ -181,69 +181,212 @@ class StudentController extends Controller
     }
 
     /**
-     * Mostrar detalles del estudiante
-     */
-    public function show($id)
-    {
-        try {
-            // Obtener datos básicos del estudiante
-            $student = $this->usuarioModel->obtenerUsuario($id);
-            
-            if (!$student) {
-                return redirect()
-                    ->route('admin.students.index')
-                    ->with('error', 'Estudiante no encontrado');
-            }
-
-            $student = (object) $student;
-            // Obtener progreso usando SP
-            $studentProgress = $this->usuarioModel->obtenerProgresoEstudiante($id);
-            $student->studentProgress = collect($studentProgress)->map(fn($p) => (object) $p);
-
-            // Obtener rutas de aprendizaje con contenidos usando SP
-            $learningPaths = $this->learningPathModel->obtenerRutasConContenidos($id);
-            $student->learningPaths = collect($learningPaths)->map(function($path) {
-                $path = (object) $path;
-                if (isset($path->contents)) {
-                    $path->contents = collect($path->contents)->map(fn($c) => (object) $c);
-                }
-                return $path;
-            });
-
-            // Obtener alertas de riesgo usando SP
-            $riskAlerts = $this->riskAlertModel->obtenerAlertasEstudiante($id);
-            $student->riskAlerts = collect($riskAlerts)->map(fn($a) => (object) $a);
-
-            // Calcular nivel de riesgo usando SP
-            $riskLevel = $this->riskAlertModel->calcularNivelRiesgo($id);
-            $student->riskLevel = (object) $riskLevel;
-
-            // Obtener recomendaciones usando SP
-            $recommendations = $this->usuarioModel->obtenerRecomendaciones($id);
-            $student->recommendations = collect($recommendations)->map(fn($r) => (object) $r);
-
-            // Obtener historial de diagnósticos usando SP
-            $diagnosticHistory = $this->usuarioModel->obtenerHistorialDiagnosticos($id);
-            $student->diagnosticHistory = collect($diagnosticHistory)->map(fn($d) => (object) $d);
-
-            // Obtener todas las estadísticas usando SP
-            $stats = $this->estadisticasModel->obtenerEstadisticasEstudiante($id);
-            $student->stats = (object) [
-                'progreso_general' => (object) ($stats['progreso_general'] ?? []),
-                'diagnosticos' => (object) ($stats['diagnosticos'] ?? []),
-                'rutas' => (object) ($stats['rutas'] ?? []),
-                'recomendaciones' => (object) ($stats['recomendaciones'] ?? [])
-            ];
-
-            return view('admin.students.show', compact('student'));
-
-        } catch (\Exception $e) {
-            error_log("Error en show student: " . $e->getMessage());
-            return redirect()
-                ->route('admin.students.index')
-                ->with('error', 'Error al cargar el estudiante');
+ * Mostrar detalles de un estudiante específico
+ * @param int $id
+ * @return \Illuminate\View\View
+ */
+public function show($id)
+{
+    try {
+        // ✅ Obtener datos del estudiante usando PDO
+        $studentData = $this->usuarioModel->obtenerUsuario($id);
+        
+        if (!$studentData) {
+            abort(404, 'Estudiante no encontrado.');
         }
+        
+        $student = (object) $studentData;
+        
+        // ✅ Agregar campos que podrían faltar
+        if (!isset($student->status)) {
+            $student->status = $student->active ? 'active' : 'inactive';
+        }
+        
+        if (!isset($student->last_activity) || !$student->last_activity) {
+            $student->last_activity = $student->updated_at ?? null;
+        }
+        
+        // Convertir fechas a Carbon si existen
+        if ($student->last_activity) {
+            $student->last_activity = \Carbon\Carbon::parse($student->last_activity);
+        }
+        if (isset($student->created_at) && $student->created_at) {
+            $student->created_at = \Carbon\Carbon::parse($student->created_at);
+        }
+        
+        // ✅ Obtener progreso usando SP
+        $studentProgress = $this->usuarioModel->obtenerProgresoEstudiante($id);
+        $student->studentProgress = collect($studentProgress)->map(function($p) {
+            $progress = (object) $p;
+            
+            // Asegurar campos necesarios
+            if (!isset($progress->status)) {
+                $progress->status = $progress->completed ?? false ? 'completed' : 'in_progress';
+            }
+            
+            return $progress;
+        });
+        
+        // ✅ Obtener rutas de aprendizaje con contenidos usando SP
+        $learningPaths = $this->learningPathModel->obtenerRutasConContenidos($id);
+        $student->learningPaths = collect($learningPaths)->map(function($path) {
+            $path = (object) $path;
+            
+            // ✅ Asegurar que exista el campo status
+            if (!isset($path->status)) {
+                // Determinar status basado en progreso
+                if (isset($path->progress_percentage)) {
+                    if ($path->progress_percentage >= 100) {
+                        $path->status = 'completed';
+                    } elseif ($path->progress_percentage > 0) {
+                        $path->status = 'active';
+                    } else {
+                        $path->status = 'inactive';
+                    }
+                } elseif (isset($path->completed) && $path->completed) {
+                    $path->status = 'completed';
+                } elseif (isset($path->in_progress) && $path->in_progress) {
+                    $path->status = 'active';
+                } else {
+                    $path->status = 'inactive';
+                }
+            }
+            
+            // Asegurar progress_percentage
+            if (!isset($path->progress_percentage)) {
+                $path->progress_percentage = 0;
+            }
+            
+            // Mapear contenidos si existen
+            if (isset($path->contents)) {
+                $path->contents = collect($path->contents)->map(function($c) {
+                    $content = (object) $c;
+                    
+                    // Asegurar status en contenidos
+                    if (!isset($content->status)) {
+                        $content->status = $content->completed ?? false ? 'completed' : 'pending';
+                    }
+                    
+                    return $content;
+                });
+            } else {
+                $path->contents = collect([]);
+            }
+            
+            return $path;
+        });
+        
+        // ✅ Obtener alertas de riesgo usando SP
+        $riskAlerts = $this->riskAlertModel->obtenerAlertasEstudiante($id);
+        $student->riskAlerts = collect($riskAlerts)->map(function($a) {
+            $alert = (object) $a;
+            
+            // Convertir fechas si existen
+            if (isset($alert->created_at) && $alert->created_at) {
+                $alert->created_at = \Carbon\Carbon::parse($alert->created_at);
+            }
+            
+            // Asegurar campos
+            if (!isset($alert->status)) {
+                $alert->status = 'active';
+            }
+            if (!isset($alert->priority)) {
+                $alert->priority = 'medium';
+            }
+            
+            return $alert;
+        });
+        
+        // ✅ Calcular nivel de riesgo usando SP
+        $riskLevel = $this->riskAlertModel->calcularNivelRiesgo($id);
+        $student->riskLevel = (object) array_merge([
+            'level' => 'low',
+            'score' => 0,
+            'factors' => []
+        ], $riskLevel ?: []);
+        
+        // ✅ Obtener recomendaciones usando SP
+        $recommendations = $this->usuarioModel->obtenerRecomendaciones($id);
+        $student->recommendations = collect($recommendations)->map(function($r) {
+            $recommendation = (object) $r;
+            
+            // Asegurar campos necesarios
+            if (!isset($recommendation->status)) {
+                $recommendation->status = 'pending';
+            }
+            if (!isset($recommendation->priority)) {
+                $recommendation->priority = 'medium';
+            }
+            
+            return $recommendation;
+        });
+        
+        // ✅ Obtener historial de diagnósticos usando SP
+        $diagnosticHistory = $this->usuarioModel->obtenerHistorialDiagnosticos($id);
+        $student->diagnosticHistory = collect($diagnosticHistory)->map(function($d) {
+            $diagnostic = (object) $d;
+            
+            // Convertir fechas
+            if (isset($diagnostic->completed_at) && $diagnostic->completed_at) {
+                $diagnostic->completed_at = \Carbon\Carbon::parse($diagnostic->completed_at);
+            }
+            
+            // Asegurar score
+            if (!isset($diagnostic->score)) {
+                $diagnostic->score = 0;
+            }
+            
+            return $diagnostic;
+        });
+        
+        // ✅ Obtener todas las estadísticas usando SP
+        $stats = $this->estadisticasModel->obtenerEstadisticasEstudiante($id);
+        
+        // Asegurar estructura completa de stats con valores por defecto
+        $student->stats = (object) [
+            'progreso_general' => (object) array_merge([
+                'total_modules' => 0,
+                'completed_modules' => 0,
+                'in_progress_modules' => 0,
+                'completion_rate' => 0,
+                'average_score' => 0
+            ], $stats['progreso_general'] ?? []),
+            
+            'diagnosticos' => (object) array_merge([
+                'total_diagnostics' => 0,
+                'completed_diagnostics' => 0,
+                'average_score' => 0,
+                'passed' => 0,
+                'failed' => 0
+            ], $stats['diagnosticos'] ?? []),
+            
+            'rutas' => (object) array_merge([
+                'total_paths' => 0,
+                'active_paths' => 0,
+                'completed_paths' => 0,
+                'completion_rate' => 0
+            ], $stats['rutas'] ?? []),
+            
+            'recomendaciones' => (object) array_merge([
+                'total_recommendations' => 0,
+                'completed_recommendations' => 0,
+                'pending_recommendations' => 0
+            ], $stats['recomendaciones'] ?? [])
+        ];
+        
+        return view('admin.students.show', compact('student'));
+        
+    } catch (\Exception $e) {
+        \Log::error("Error en show student: " . $e->getMessage(), [
+            'student_id' => $id,
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return redirect()
+            ->route('admin.students.index')
+            ->with('error', 'Error al cargar el estudiante: ' . $e->getMessage());
     }
+}
     /**
      * Mostrar formulario de edición
      */

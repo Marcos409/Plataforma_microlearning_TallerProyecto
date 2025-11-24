@@ -494,4 +494,135 @@ class DiagnosticoModel extends BaseModel
         
         return $total > 0 ? $suma / $total : 0;
     }
+
+    // ==========================================
+    /**
+ * Predecir dificultades de aprendizaje
+ */
+public function predecirDificultades($userId)
+{
+    $factores = [
+        'rendimiento_bajo' => false,
+        'tiempo_excesivo' => false,
+        'errores_recurrentes' => [],
+        'sin_progreso' => false,
+        'score' => 0
+    ];
+    
+    try {
+        // 1. Verificar rendimiento bajo
+        $stmt = $this->pdo->prepare("
+            SELECT AVG(score) as avg_score
+            FROM diagnostic_responses
+            WHERE user_id = ?
+        ");
+        $stmt->execute([$userId]);
+        $result = $stmt->fetch(\PDO::FETCH_ASSOC);
+        $avgScore = $result['avg_score'] ?? 0;
+        
+        if ($avgScore > 0 && $avgScore < 50) {
+            $factores['rendimiento_bajo'] = true;
+            $factores['score'] += 30;
+        }
+        
+        // 2. Detectar patrones de error
+        $stmt = $this->pdo->prepare("
+            SELECT 
+                dq.subject_area,
+                COUNT(*) as errores
+            FROM diagnostic_responses dr
+            JOIN diagnostic_questions dq ON dr.question_id = dq.id
+            WHERE dr.user_id = ?
+            AND dr.is_correct = 0
+            GROUP BY dq.subject_area
+            HAVING errores >= 3
+            ORDER BY errores DESC
+        ");
+        $stmt->execute([$userId]);
+        $errores = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        
+        if (!empty($errores)) {
+            $factores['errores_recurrentes'] = array_column($errores, 'subject_area');
+            $factores['score'] += 25;
+        }
+        
+        // 3. Verificar progreso
+        $stmt = $this->pdo->prepare("
+            SELECT 
+                dr1.score as score_reciente,
+                dr2.score as score_anterior
+            FROM diagnostic_responses dr1
+            LEFT JOIN diagnostic_responses dr2 ON dr2.user_id = dr1.user_id 
+                AND dr2.created_at < dr1.created_at
+            WHERE dr1.user_id = ?
+            ORDER BY dr1.created_at DESC
+            LIMIT 5
+        ");
+        $stmt->execute([$userId]);
+        $progreso = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        
+        $sinMejora = 0;
+        foreach ($progreso as $p) {
+            if ($p['score_anterior'] && $p['score_reciente'] <= $p['score_anterior']) {
+                $sinMejora++;
+            }
+        }
+        
+        if ($sinMejora >= 3) {
+            $factores['sin_progreso'] = true;
+            $factores['score'] += 20;
+        }
+        
+    } catch (\PDOException $e) {
+        error_log("Error prediciendo dificultades: " . $e->getMessage());
+    }
+    
+    return $factores;
+}
+
+/**
+ * Obtener áreas de mejora sugeridas
+ */
+public function obtenerAreasMejora($userId)
+{
+    try {
+        $stmt = $this->pdo->prepare("
+            SELECT 
+                dq.subject_area,
+                COUNT(*) as total_preguntas,
+                SUM(CASE WHEN dr.is_correct = 1 THEN 1 ELSE 0 END) as correctas,
+                ROUND((SUM(CASE WHEN dr.is_correct = 1 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) as porcentaje
+            FROM diagnostic_responses dr
+            JOIN diagnostic_questions dq ON dr.question_id = dq.id
+            WHERE dr.user_id = ?
+            GROUP BY dq.subject_area
+            /* ⭐ ARREGLO CLAVE: Se elimina la cláusula HAVING para traer TODAS las áreas,
+               y el ReportController filtra las débiles (por debajo de 60%).
+               Si deseas filtrar por 70%, cambia < 60 en el controlador.
+               SE QUITÓ: HAVING porcentaje < 70
+            */
+            ORDER BY porcentaje ASC
+        ");
+        
+        $stmt->execute([$userId]);
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    } catch (\PDOException $e) {
+        error_log("Error obteniendo áreas de mejora: " . $e->getMessage());
+        return [];
+    }
+}
+
+// La función obtenerRendimientoEstudiante está bien, la dejamos igual:
+/*
+public function obtenerRendimientoEstudiante($userId) 
+{
+    $result = $this->callProcedureSingle('sp_obtener_rendimiento_estudiante', [$userId]);
+    
+    return $result ?: [
+        'total_responses' => 0,
+        'correct_responses' => 0,
+        'percentage' => 0.00
+    ];
+}
+*/
 }

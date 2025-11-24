@@ -101,6 +101,11 @@
                                         </a>
                                     </li>
                                     <li class="nav-item">
+                                        <a class="nav-link" href="{{ route('student.ml.ml-dashboard') }}">
+                                            <i class="fas fa-brain text-primary"></i> Dashboard Inteligente
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
                                         <a class="nav-link" href="{{ route('student.diagnostics.index') }}">
                                             <i class="fas fa-clipboard-check"></i> Diagnósticos
                                         </a>
@@ -142,10 +147,29 @@
                                         </a>
                                     </li>
                                     <li class="nav-item">
+                                        <a class="nav-link" href="{{ route('admin.monitoring.system-monitoring') }}">
+                                            <i class="fas fa-chart-line"></i> Monitoreo del Sistema
+                                        </a>
+                                    </li>
+
+                                    <li class="nav-item">
                                         <a class="nav-link" href="{{ route('admin.reports.index') }}">
                                             <i class="fas fa-chart-bar"></i> Reportes
                                         </a>
                                     </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ route('admin.reports.group') }}">
+                                            <i class="fas fa-chart-bar"></i> Informe de Grupo
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ route('admin.reports.risk-report') }}">
+                                            <i class="fas fa-chart-bar"></i> Informe de Riesgo
+                                        </a>
+                                    </li>
+
+
+
                                 @elseif(Auth::user()->isTeacher())
                                     <li class="nav-item">
                                         <a class="nav-link" href="{{ route('teacher.dashboard') }}">

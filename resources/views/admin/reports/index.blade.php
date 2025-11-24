@@ -7,7 +7,11 @@
             <div class="card shadow-sm">
                 <div class="card-header bg-gradient-primary text-white">
                     <h4 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Centro de Reportes</h4>
+                    
+                    
+                    
                 </div>
+                
 
                 <div class="card-body">
                     <!-- Estadísticas Generales -->

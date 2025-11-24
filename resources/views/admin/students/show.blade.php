@@ -32,15 +32,15 @@
                     </div>
                     <div class="row mb-2">
                         <div class="col-sm-5"><strong>Código:</strong></div>
-                        <div class="col-sm-7">{{ $student->student_code }}</div>
+                        <div class="col-sm-7">{{ $student->student_code ?? 'N/A' }}</div>
                     </div>
                     <div class="row mb-2">
                         <div class="col-sm-5"><strong>Carrera:</strong></div>
-                        <div class="col-sm-7">{{ $student->career }}</div>
+                        <div class="col-sm-7">{{ $student->career ?? 'N/A' }}</div>
                     </div>
                     <div class="row mb-2">
                         <div class="col-sm-5"><strong>Semestre:</strong></div>
-                        <div class="col-sm-7">{{ $student->semester }}°</div>
+                        <div class="col-sm-7">{{ $student->semester ?? 'N/A' }}°</div>
                     </div>
                     <div class="row mb-2">
                         <div class="col-sm-5"><strong>Teléfono:</strong></div>
@@ -57,23 +57,21 @@
                     <div class="row mb-2">
                         <div class="col-sm-5"><strong>Registro:</strong></div>
                         <div class="col-sm-7">
-                            {{ 
-                                $student->created_at 
-                                    ? \Carbon\Carbon::parse($student->created_at)->format('d/m/Y H:i') 
-                                    : 'N/A' 
-                            }}
+                            @if($student->created_at)
+                                {{ $student->created_at->format('d/m/Y H:i') }}
+                            @else
+                                N/A
+                            @endif
                         </div>
                     </div>
                     <div class="row">
                         <div class="col-sm-5"><strong>Última actividad:</strong></div>
                         <div class="col-sm-7">
-                            {{ 
-                                // Usamos isset() para verificar que la propiedad exista.
-                                // Si existe y tiene valor, la formateamos. Si no, mostramos 'Nunca'.
-                                (isset($student->last_activity) && $student->last_activity)
-                                    ? \Carbon\Carbon::parse($student->last_activity)->format('d/m/Y H:i') 
-                                    : 'Nunca' 
-                            }}
+                            @if($student->last_activity)
+                                {{ $student->last_activity->diffForHumans() }}
+                            @else
+                                Nunca
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -90,9 +88,8 @@
                     <div class="row">
                         <div class="col-md-3">
                             <div class="text-center">
-                                <!-- CORRECCIÓN CLAVE: Acceder a la propiedad 'valor' en lugar de llamar al método -->
                                 <div class="h3 text-primary">
-                                    {{ number_format($student->stats->progreso_general->valor ?? 0, 1) }}%
+                                    {{ number_format($student->stats->progreso_general->completion_rate ?? 0, 1) }}%
                                 </div>
                                 <small class="text-muted">Progreso General</small>
                             </div>
@@ -100,23 +97,23 @@
                         <div class="col-md-3">
                             <div class="text-center">
                                 <div class="h3 text-success">
-                                    {{ $student->stats->rutas->actividades_completadas ?? 0 }}
+                                    {{ $student->stats->progreso_general->completed_modules ?? 0 }}
                                 </div>
-                                <small class="text-muted">Actividades Completadas</small>
+                                <small class="text-muted">Módulos Completados</small>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="text-center">
                                 <div class="h3 text-info">
-                                    {{ $student->stats->rutas->minutos_estudiados ?? 0 }}
+                                    {{ $student->stats->diagnosticos->completed_diagnostics ?? 0 }}
                                 </div>
-                                <small class="text-muted">Minutos Estudiados</small>
+                                <small class="text-muted">Diagnósticos Completados</small>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="text-center">
                                 <div class="h3 text-warning">
-                                    {{ $student->stats->recomendaciones->pendientes ?? 0 }}
+                                    {{ $student->stats->recomendaciones->pending_recommendations ?? 0 }}
                                 </div>
                                 <small class="text-muted">Recomendaciones Pendientes</small>
                             </div>
@@ -126,7 +123,7 @@
             </div>
 
             <!-- Progreso por Materia -->
-            @if($student->studentProgress->count() > 0)
+            @if($student->studentProgress && $student->studentProgress->count() > 0)
             <div class="card mb-4">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="fas fa-book"></i> Progreso por Materia</h5>
@@ -137,11 +134,11 @@
                             <h6>{{ $subject }}</h6>
                             @foreach($progress as $item)
                                 <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <span class="small">{{ $item->topic }}</span>
-                                    <span class="small">{{ number_format($item->progress_percentage, 1) }}%</span>
+                                    <span class="small">{{ $item->topic ?? $item->title ?? 'Sin título' }}</span>
+                                    <span class="small">{{ number_format($item->progress_percentage ?? 0, 1) }}%</span>
                                 </div>
                                 <div class="progress mb-2" style="height: 6px;">
-                                    <div class="progress-bar bg-primary" style="width: {{ $item->progress_percentage }}%"></div>
+                                    <div class="progress-bar bg-primary" style="width: {{ $item->progress_percentage ?? 0 }}%"></div>
                                 </div>
                             @endforeach
                         </div>
@@ -151,7 +148,7 @@
             @endif
 
             <!-- Rutas de Aprendizaje -->
-            @if($student->learningPaths->count() > 0)
+            @if($student->learningPaths && $student->learningPaths->count() > 0)
             <div class="card mb-4">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="fas fa-route"></i> Rutas de Aprendizaje</h5>
@@ -161,18 +158,18 @@
                         <div class="border rounded p-3 mb-3">
                             <div class="d-flex justify-content-between align-items-start">
                                 <div>
-                                    <h6 class="mb-1">{{ $path->name }}</h6>
-                                    <p class="text-muted small mb-2">{{ $path->description }}</p>
+                                    <h6 class="mb-1">{{ $path->title ?? $path->name ?? 'Ruta sin título' }}</h6>
+                                    <p class="text-muted small mb-2">{{ $path->description ?? '' }}</p>
                                     <small class="text-muted">
-                                        {{ $path->completed_contents }}/{{ $path->total_contents }} contenidos completados
+                                        {{ $path->completed_contents ?? 0 }}/{{ $path->total_contents ?? 0 }} contenidos completados
                                     </small>
                                 </div>
                                 <div class="text-center">
-                                    <div class="h5 text-{{ $path->progress_percentage >= 100 ? 'success' : 'primary' }}">
-                                        {{ number_format($path->progress_percentage, 1) }}%
+                                    <div class="h5 text-{{ ($path->progress_percentage ?? 0) >= 100 ? 'success' : 'primary' }}">
+                                        {{ number_format($path->progress_percentage ?? 0, 1) }}%
                                     </div>
-                                    <span class="badge bg-{{ $path->status == 'active' ? 'primary' : ($path->status == 'completed' ? 'success' : 'secondary') }}">
-                                        {{ ucfirst($path->status) }}
+                                    <span class="badge bg-{{ ($path->status ?? 'inactive') == 'active' ? 'primary' : (($path->status ?? 'inactive') == 'completed' ? 'success' : 'secondary') }}">
+                                        {{ ucfirst($path->status ?? 'inactive') }}
                                     </span>
                                 </div>
                             </div>
@@ -185,7 +182,7 @@
     </div>
 
     <!-- Alertas de Riesgo -->
-    @if($student->riskAlerts->where('is_resolved', false)->count() > 0)
+    @if($student->riskAlerts && $student->riskAlerts->where('is_resolved', false)->count() > 0)
     <div class="row">
         <div class="col-12">
             <div class="card">
@@ -194,15 +191,22 @@
                 </div>
                 <div class="card-body">
                     @foreach($student->riskAlerts->where('is_resolved', false) as $alert)
-                        <div class="alert alert-{{ $alert->severity == 'critical' ? 'danger' : ($alert->severity == 'high' ? 'warning' : 'info') }}">
+                        <div class="alert alert-{{ ($alert->severity ?? 'info') == 'critical' ? 'danger' : (($alert->severity ?? 'info') == 'high' ? 'warning' : 'info') }}">
                             <div class="d-flex justify-content-between align-items-start">
                                 <div>
-                                    <h6 class="alert-heading">{{ $alert->title }}</h6>
-                                    <p class="mb-0">{{ $alert->description }}</p>
-                                    <small class="text-muted">Creada: {{ $alert->created_at->format('d/m/Y H:i') }}</small>
+                                    <h6 class="alert-heading">{{ $alert->title ?? 'Alerta de riesgo' }}</h6>
+                                    <p class="mb-0">{{ $alert->description ?? '' }}</p>
+                                    <small class="text-muted">
+                                        Creada: 
+                                        @if($alert->created_at)
+                                            {{ $alert->created_at->format('d/m/Y H:i') }}
+                                        @else
+                                            N/A
+                                        @endif
+                                    </small>
                                 </div>
-                                <span class="badge bg-{{ $alert->severity == 'critical' ? 'danger' : ($alert->severity == 'high' ? 'warning' : 'info') }}">
-                                    {{ strtoupper($alert->severity) }}
+                                <span class="badge bg-{{ ($alert->severity ?? 'info') == 'critical' ? 'danger' : (($alert->severity ?? 'info') == 'high' ? 'warning' : 'info') }}">
+                                    {{ strtoupper($alert->severity ?? 'INFO') }}
                                 </span>
                             </div>
                         </div>
@@ -214,7 +218,7 @@
     @endif
 
     <!-- Recomendaciones -->
-    @if($student->recommendations->where('is_completed', false)->count() > 0)
+    @if($student->recommendations && $student->recommendations->where('is_completed', false)->count() > 0)
     <div class="row mt-4">
         <div class="col-12">
             <div class="card">
@@ -227,13 +231,19 @@
                             <div class="col-md-4 mb-3">
                                 <div class="card h-100">
                                     <div class="card-body">
-                                        <h6 class="card-title">{{ $recommendation->content->title ?? 'Contenido' }}</h6>
-                                        <p class="card-text small">{{ $recommendation->reason }}</p>
+                                        <h6 class="card-title">{{ $recommendation->title ?? 'Recomendación' }}</h6>
+                                        <p class="card-text small">{{ $recommendation->description ?? $recommendation->reason ?? '' }}</p>
                                         <div class="d-flex justify-content-between align-items-center">
-                                            <span class="badge bg-{{ $recommendation->priority == 1 ? 'danger' : ($recommendation->priority == 2 ? 'warning' : 'info') }}">
-                                                {{ $recommendation->priority == 1 ? 'Alta' : ($recommendation->priority == 2 ? 'Media' : 'Baja') }}
+                                            <span class="badge bg-{{ ($recommendation->priority ?? 'medium') == 'high' ? 'danger' : (($recommendation->priority ?? 'medium') == 'medium' ? 'warning' : 'info') }}">
+                                                {{ ucfirst($recommendation->priority ?? 'Media') }}
                                             </span>
-                                            <small class="text-muted">{{ $recommendation->created_at->format('d/m/Y') }}</small>
+                                            <small class="text-muted">
+                                                @if(isset($recommendation->created_at))
+                                                    {{ \Carbon\Carbon::parse($recommendation->created_at)->format('d/m/Y') }}
+                                                @else
+                                                    N/A
+                                                @endif
+                                            </small>
                                         </div>
                                     </div>
                                 </div>

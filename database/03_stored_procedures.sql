@@ -1,10 +1,14 @@
 -- =============================================
 -- STORED PROCEDURES COMPLETOS - MICROLEARNING UC
--- Archivo limpio sin duplicados
--- Versión: 1.0 - Octubre 2024
+-- ARCHIVO REESTRUCTURADO POR SECCIONES
+-- Versión: 1.1 - Noviembre 2025
 -- =============================================
 
 USE `bd_microlearning_uc`;
+
+-- *********************************************
+-- SECCIÓN 0: CREACIÓN Y ESTRUCTURA DE TABLAS
+-- *********************************************
 
 -- =============================================
 -- CREAR TABLA FOLLOW_UPS (NUEVO)
@@ -29,12 +33,13 @@ CREATE TABLE IF NOT EXISTS `follow_ups` (
     KEY `idx_follow_ups_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- *********************************************
+-- SECCIÓN 1: STORED PROCEDURES PARA USUARIOS Y ROLES
+-- *********************************************
+
 DELIMITER //
 
--- =============================================
--- SECCIÓN 1: STORED PROCEDURES PARA USUARIOS
--- =============================================
-
+-- 1.1: CRUD BÁSICO DE USUARIOS
 DROP PROCEDURE IF EXISTS sp_obtener_usuario//
 CREATE PROCEDURE sp_obtener_usuario(IN p_id BIGINT)
 BEGIN
@@ -64,44 +69,6 @@ BEGIN
     LEFT JOIN roles r ON u.role_id = r.id
     ORDER BY u.name;
 END//
-
--- Eliminar el procedimiento si existe
-DROP PROCEDURE IF EXISTS sp_buscar_usuarios;
-
--- Cambiar el delimitador
-DELIMITER //
-
--- Crear el procedimiento
-CREATE PROCEDURE sp_buscar_usuarios(
-    IN p_search VARCHAR(255),
-    IN p_role_id BIGINT,
-    IN p_active TINYINT(1)
-)
-BEGIN
-    SELECT 
-        u.id, 
-        u.name, 
-        u.email, 
-        u.student_code, 
-        u.career, 
-        u.semester,
-        u.phone,
-        u.active,
-        u.role_id,
-        r.name as role_name,
-        u.created_at,
-        u.updated_at
-    FROM users u
-    LEFT JOIN roles r ON u.role_id = r.id
-    WHERE 
-        (p_search IS NULL OR u.name LIKE CONCAT('%', p_search, '%') OR u.email LIKE CONCAT('%', p_search, '%'))
-        AND (p_role_id IS NULL OR u.role_id = p_role_id)
-        AND (p_active IS NULL OR u.active = p_active)
-    ORDER BY u.name;
-END//
-
--- Restaurar el delimitador
-DELIMITER ;
 
 DROP PROCEDURE IF EXISTS sp_crear_usuario//
 CREATE PROCEDURE sp_crear_usuario(
@@ -229,6 +196,36 @@ BEGIN
     DELETE FROM users WHERE id = p_user_id;
 END//
 
+-- 1.2: FUNCIONALIDADES DE CUENTA Y BÚSQUEDA
+DROP PROCEDURE IF EXISTS sp_buscar_usuarios//
+CREATE PROCEDURE sp_buscar_usuarios(
+    IN p_search VARCHAR(255),
+    IN p_role_id BIGINT,
+    IN p_active TINYINT(1)
+)
+BEGIN
+    SELECT 
+        u.id, 
+        u.name, 
+        u.email, 
+        u.student_code, 
+        u.career, 
+        u.semester,
+        u.phone,
+        u.active,
+        u.role_id,
+        r.name as role_name,
+        u.created_at,
+        u.updated_at
+    FROM users u
+    LEFT JOIN roles r ON u.role_id = r.id
+    WHERE 
+        (p_search IS NULL OR u.name LIKE CONCAT('%', p_search, '%') OR u.email LIKE CONCAT('%', p_search, '%'))
+        AND (p_role_id IS NULL OR u.role_id = p_role_id)
+        AND (p_active IS NULL OR u.active = p_active)
+    ORDER BY u.name;
+END//
+
 DROP PROCEDURE IF EXISTS sp_cambiar_estado_usuario//
 CREATE PROCEDURE sp_cambiar_estado_usuario(IN p_user_id BIGINT, IN p_active TINYINT(1))
 BEGIN
@@ -261,6 +258,7 @@ BEGIN
     WHERE email = p_email;
 END//
 
+-- 1.3: PROCEDIMIENTOS DE ROLES
 DROP PROCEDURE IF EXISTS sp_listar_roles//
 CREATE PROCEDURE sp_listar_roles()
 BEGIN
@@ -277,6 +275,7 @@ BEGIN
     WHERE role_id = p_role_id AND active = 1;
 END//
 
+-- 1.4: ESTUDIANTES Y FILTROS AVANZADOS
 DROP PROCEDURE IF EXISTS sp_obtener_estudiantes_filtros//
 CREATE PROCEDURE sp_obtener_estudiantes_filtros(
     IN p_search VARCHAR(255),
@@ -298,10 +297,15 @@ BEGIN
     ORDER BY u.name;
 END//
 
--- =============================================
--- SECCIÓN 2: STORED PROCEDURES PARA CONTENIDOS
--- =============================================
+DELIMITER ;
 
+-- *********************************************
+-- SECCIÓN 2: STORED PROCEDURES PARA CONTENIDOS
+-- *********************************************
+
+DELIMITER //
+
+-- 2.1: CRUD Y LISTADO
 DROP PROCEDURE IF EXISTS sp_listar_contenidos//
 CREATE PROCEDURE sp_listar_contenidos(
     IN p_subject_area VARCHAR(100),
@@ -416,6 +420,7 @@ BEGIN
     SELECT ROW_COUNT() as affected_rows;
 END//
 
+-- 2.2: ESTADÍSTICAS Y BÚSQUEDA
 DROP PROCEDURE IF EXISTS sp_incrementar_vistas_contenido//
 CREATE PROCEDURE sp_incrementar_vistas_contenido(IN p_id BIGINT)
 BEGIN
@@ -465,23 +470,6 @@ BEGIN
     ORDER BY views DESC, created_at DESC;
 END//
 
-DROP PROCEDURE IF EXISTS sp_contenidos_recomendados_usuario//
-CREATE PROCEDURE sp_contenidos_recomendados_usuario(IN p_user_id BIGINT, IN p_limit INT)
-BEGIN
-    SELECT c.id, c.title, c.description, c.subject_area, c.type,
-           c.difficulty_level, c.content_url, c.duration_minutes, c.views
-    FROM content_library c
-    INNER JOIN student_progress sp ON c.subject_area = sp.subject_area
-    WHERE sp.user_id = p_user_id AND c.active = 1
-    AND c.id NOT IN (
-        SELECT content_id FROM learning_path_content lpc
-        INNER JOIN learning_paths lp ON lpc.learning_path_id = lp.id
-        WHERE lp.user_id = p_user_id AND lpc.is_completed = 1
-    )
-    ORDER BY c.views DESC, c.created_at DESC
-    LIMIT p_limit;
-END//
-
 DROP PROCEDURE IF EXISTS sp_contar_contenidos_por_tipo//
 CREATE PROCEDURE sp_contar_contenidos_por_tipo()
 BEGIN
@@ -505,9 +493,13 @@ BEGIN
     FROM content_library;
 END//
 
--- =============================================
+DELIMITER ;
+
+-- *********************************************
 -- SECCIÓN 3: STORED PROCEDURES PARA PROGRESO
--- =============================================
+-- *********************************************
+
+DELIMITER //
 
 DROP PROCEDURE IF EXISTS sp_obtener_progreso_estudiante//
 CREATE PROCEDURE sp_obtener_progreso_estudiante(IN p_user_id BIGINT)
@@ -561,10 +553,15 @@ BEGIN
     WHERE user_id = p_user_id;
 END//
 
--- =============================================
--- SECCIÓN 4: STORED PROCEDURES PARA DIAGNÓSTICOS
--- =============================================
+DELIMITER ;
 
+-- *********************************************
+-- SECCIÓN 4: STORED PROCEDURES PARA DIAGNÓSTICOS
+-- *********************************************
+
+DELIMITER //
+
+-- 4.1: CRUD DE DIAGNÓSTICOS
 DROP PROCEDURE IF EXISTS sp_listar_diagnosticos//
 CREATE PROCEDURE sp_listar_diagnosticos()
 BEGIN
@@ -575,12 +572,72 @@ BEGIN
     ORDER BY subject_area, difficulty_level;
 END//
 
-USE `bd_microlearning_uc`;
+DROP PROCEDURE IF EXISTS sp_obtener_diagnostico//
+CREATE PROCEDURE sp_obtener_diagnostico(IN p_id BIGINT)
+BEGIN
+    SELECT 
+        id, title, description, subject_area, difficulty_level,
+        time_limit_minutes, passing_score, active, created_at, updated_at
+    FROM diagnostics
+    WHERE id = p_id;
+END//
 
-DELIMITER //
+DROP PROCEDURE IF EXISTS sp_crear_diagnostico//
+CREATE PROCEDURE sp_crear_diagnostico(
+    IN p_title VARCHAR(255),
+    IN p_description TEXT,
+    IN p_subject_area VARCHAR(100),
+    IN p_difficulty_level VARCHAR(20),
+    IN p_time_limit_minutes INT,
+    IN p_passing_score DECIMAL(5,2)
+)
+BEGIN
+    INSERT INTO diagnostics (
+        title, description, subject_area, difficulty_level,
+        time_limit_minutes, passing_score, active, created_at, updated_at
+    ) VALUES (
+        p_title, p_description, p_subject_area, p_difficulty_level,
+        p_time_limit_minutes, p_passing_score, 1, NOW(), NOW()
+    );
+    
+    SELECT LAST_INSERT_ID() as id;
+END//
 
+DROP PROCEDURE IF EXISTS sp_actualizar_diagnostico//
+CREATE PROCEDURE sp_actualizar_diagnostico(
+    IN p_id BIGINT,
+    IN p_title VARCHAR(255),
+    IN p_description TEXT,
+    IN p_subject_area VARCHAR(100),
+    IN p_difficulty_level VARCHAR(20),
+    IN p_time_limit_minutes INT,
+    IN p_passing_score DECIMAL(5,2),
+    IN p_active BOOLEAN
+)
+BEGIN
+    UPDATE diagnostics
+    SET title = p_title,
+        description = p_description,
+        subject_area = p_subject_area,
+        difficulty_level = p_difficulty_level,
+        time_limit_minutes = p_time_limit_minutes,
+        passing_score = p_passing_score,
+        active = p_active,
+        updated_at = NOW()
+    WHERE id = p_id;
+    
+    SELECT ROW_COUNT() as affected_rows;
+END//
+
+DROP PROCEDURE IF EXISTS sp_eliminar_diagnostico//
+CREATE PROCEDURE sp_eliminar_diagnostico(IN p_id BIGINT)
+BEGIN
+    DELETE FROM diagnostics WHERE id = p_id;
+    SELECT ROW_COUNT() as affected_rows;
+END//
+
+-- 4.2: CRUD DE PREGUNTAS DE DIAGNÓSTICO
 DROP PROCEDURE IF EXISTS sp_obtener_diagnostico_completo//
-
 CREATE PROCEDURE sp_obtener_diagnostico_completo(IN p_diagnostic_id BIGINT)
 BEGIN
     -- Primer resultado: datos del diagnóstico
@@ -605,7 +662,7 @@ BEGIN
         question_text, 
         question_type, 
         options, 
-        correct_answer,  -- ← AGREGADO
+        correct_answer,
         points, 
         order_index,
         created_at,
@@ -615,10 +672,73 @@ BEGIN
     ORDER BY order_index;
 END//
 
-DELIMITER ;
+DROP PROCEDURE IF EXISTS sp_crear_pregunta//
+CREATE PROCEDURE sp_crear_pregunta(
+    IN p_diagnostic_id BIGINT,
+    IN p_question_text TEXT,
+    IN p_question_type VARCHAR(20),
+    IN p_options JSON,
+    IN p_correct_answer TEXT,
+    IN p_points DECIMAL(4,2)
+)
+BEGIN
+    DECLARE max_order INT DEFAULT 0;
+    
+    SELECT COALESCE(MAX(order_index), 0) INTO max_order
+    FROM diagnostic_questions
+    WHERE diagnostic_id = p_diagnostic_id;
+    
+    INSERT INTO diagnostic_questions (
+        diagnostic_id, question_text, question_type, options,
+        correct_answer, points, order_index, created_at, updated_at
+    ) VALUES (
+        p_diagnostic_id, p_question_text, p_question_type, p_options,
+        p_correct_answer, p_points, max_order + 1, NOW(), NOW()
+    );
+    
+    SELECT LAST_INSERT_ID() as id;
+END//
 
-SELECT '✅ Stored Procedure actualizado correctamente' AS status;
+DROP PROCEDURE IF EXISTS sp_obtener_pregunta//
+CREATE PROCEDURE sp_obtener_pregunta(IN p_id BIGINT)
+BEGIN
+    SELECT 
+        id, diagnostic_id, question_text, question_type, options,
+        correct_answer, points, order_index, created_at, updated_at
+    FROM diagnostic_questions
+    WHERE id = p_id;
+END//
 
+DROP PROCEDURE IF EXISTS sp_actualizar_pregunta//
+CREATE PROCEDURE sp_actualizar_pregunta(
+    IN p_id BIGINT,
+    IN p_question_text TEXT,
+    IN p_question_type VARCHAR(20),
+    IN p_options JSON,
+    IN p_correct_answer TEXT,
+    IN p_points DECIMAL(4,2)
+)
+BEGIN
+    UPDATE diagnostic_questions
+    SET question_text = p_question_text,
+        question_type = p_question_type,
+        options = p_options,
+        correct_answer = p_correct_answer,
+        points = p_points,
+        updated_at = NOW()
+    WHERE id = p_id;
+    
+    SELECT ROW_COUNT() as affected_rows;
+END//
+
+DROP PROCEDURE IF EXISTS sp_eliminar_pregunta//
+CREATE PROCEDURE sp_eliminar_pregunta(IN p_id BIGINT)
+BEGIN
+    DELETE FROM diagnostic_questions WHERE id = p_id;
+    SELECT ROW_COUNT() as affected_rows;
+END//
+
+-- 4.3: RESPUESTAS Y RESULTADOS
 DROP PROCEDURE IF EXISTS sp_guardar_respuesta_diagnostico//
 CREATE PROCEDURE sp_guardar_respuesta_diagnostico(
     IN p_user_id BIGINT,
@@ -681,8 +801,13 @@ BEGIN
     SELECT COUNT(*), SUM(points_earned) INTO correct_a, earned_pts
     FROM diagnostic_responses
     WHERE user_id = p_user_id;
+    
+    -- Lógica de finalización (FALTA EL CÓDIGO DE INSERCIÓN/ACTUALIZACIÓN EN diagnostic_results)
+    -- Asumiendo que esta lógica se omite para no modificar la estructura original (incompleta)
+    
 END//
 
+-- 4.4: ESTADÍSTICAS Y RENDIMIENTO
 DROP PROCEDURE IF EXISTS sp_rendimiento_por_materia//
 CREATE PROCEDURE sp_rendimiento_por_materia()
 BEGIN
@@ -698,9 +823,241 @@ BEGIN
     ORDER BY avg_score DESC;
 END//
 
--- =============================================
+DROP PROCEDURE IF EXISTS sp_contar_diagnosticos_completados//
+CREATE PROCEDURE sp_contar_diagnosticos_completados(IN p_user_id BIGINT)
+BEGIN
+    SELECT COUNT(*) as total 
+    FROM diagnostic_results 
+    WHERE user_id = p_user_id;
+END//
+
+DROP PROCEDURE IF EXISTS sp_obtener_rendimiento_estudiante//
+CREATE PROCEDURE sp_obtener_rendimiento_estudiante(IN p_user_id BIGINT)
+BEGIN
+    SELECT 
+        COUNT(*) as total_responses,
+        SUM(CASE WHEN is_correct = 1 THEN 1 ELSE 0 END) as correct_responses,
+        ROUND((SUM(CASE WHEN is_correct = 1 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) as percentage
+    FROM diagnostic_responses
+    WHERE user_id = p_user_id;
+END//
+
+DROP PROCEDURE IF EXISTS sp_obtener_rendimiento_por_mes//
+CREATE PROCEDURE sp_obtener_rendimiento_por_mes()
+BEGIN
+    SELECT 
+        MONTH(dr.created_at) as month,
+        YEAR(dr.created_at) as year,
+        COUNT(*) as total_attempts,
+        SUM(CASE WHEN dr.is_correct = 1 THEN 1 ELSE 0 END) as correct_answers,
+        ROUND((SUM(CASE WHEN dr.is_correct = 1 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) as avg_score
+    FROM diagnostic_responses dr
+    WHERE dr.created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+    GROUP BY year, month
+    ORDER BY year DESC, month DESC;
+END//
+
+DROP PROCEDURE IF EXISTS sp_historial_diagnosticos_usuario//
+CREATE PROCEDURE sp_historial_diagnosticos_usuario(IN p_user_id BIGINT)
+BEGIN
+    SELECT 
+        dr.id,
+        dr.completed_at,
+        dr.score_percentage,
+        dr.passed,
+        dr.time_taken_minutes,
+        d.title as diagnostic_title,
+        d.subject_area,
+        d.difficulty_level,
+        d.id as diagnostic_id
+    FROM diagnostic_results dr
+    INNER JOIN diagnostics d ON dr.diagnostic_id = d.id
+    WHERE dr.user_id = p_user_id
+    ORDER BY dr.completed_at DESC;
+END//
+
+DROP PROCEDURE IF EXISTS sp_contar_diagnosticos_hoy//
+CREATE PROCEDURE sp_contar_diagnosticos_hoy()
+BEGIN
+    SELECT COUNT(*) as total
+    FROM diagnostic_results
+    WHERE DATE(completed_at) = CURDATE();
+END//
+
+DROP PROCEDURE IF EXISTS sp_estadisticas_diagnostico//
+CREATE PROCEDURE sp_estadisticas_diagnostico(IN p_diagnostic_id BIGINT)
+BEGIN
+    SELECT 
+        COUNT(*) as total_intentos,
+        SUM(CASE WHEN passed = 1 THEN 1 ELSE 0 END) as total_aprobados,
+        ROUND(AVG(score_percentage), 2) as promedio_puntaje,
+        MIN(score_percentage) as puntaje_minimo,
+        MAX(score_percentage) as puntaje_maximo,
+        ROUND(AVG(time_taken_minutes), 2) as tiempo_promedio,
+        ROUND((SUM(CASE WHEN passed = 1 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) as porcentaje_aprobacion
+    FROM diagnostic_results
+    WHERE diagnostic_id = p_diagnostic_id;
+END//
+
+DROP PROCEDURE IF EXISTS sp_top_estudiantes_diagnostico//
+CREATE PROCEDURE sp_top_estudiantes_diagnostico(
+    IN p_diagnostic_id BIGINT,
+    IN p_limit INT
+)
+BEGIN
+    SELECT 
+        dr.user_id,
+        u.name as student_name,
+        u.email,
+        dr.score_percentage,
+        dr.time_taken_minutes,
+        dr.completed_at
+    FROM diagnostic_results dr
+    INNER JOIN users u ON dr.user_id = u.id
+    WHERE dr.diagnostic_id = p_diagnostic_id
+    ORDER BY dr.score_percentage DESC, dr.time_taken_minutes ASC
+    LIMIT p_limit;
+END//
+
+DROP PROCEDURE IF EXISTS sp_preguntas_mas_dificiles//
+CREATE PROCEDURE sp_preguntas_mas_dificiles(
+    IN p_diagnostic_id BIGINT,
+    IN p_limit INT
+)
+BEGIN
+    SELECT 
+        dq.id,
+        dq.question_text,
+        dq.question_type,
+        COUNT(dr.id) as total_respuestas,
+        SUM(CASE WHEN dr.is_correct = 1 THEN 1 ELSE 0 END) as respuestas_correctas,
+        ROUND((SUM(CASE WHEN dr.is_correct = 1 THEN 1 ELSE 0 END) / COUNT(dr.id)) * 100, 2) as tasa_acierto
+    FROM diagnostic_questions dq
+    LEFT JOIN diagnostic_responses dr ON dq.id = dr.question_id
+    WHERE dq.diagnostic_id = p_diagnostic_id
+    GROUP BY dq.id, dq.question_text, dq.question_type
+    HAVING COUNT(dr.id) > 0
+    ORDER BY tasa_acierto ASC
+    LIMIT p_limit;
+END//
+
+DROP PROCEDURE IF EXISTS sp_progreso_diagnosticos_usuario//
+CREATE PROCEDURE sp_progreso_diagnosticos_usuario(IN p_user_id BIGINT)
+BEGIN
+    SELECT 
+        d.id as diagnostic_id,
+        d.title,
+        d.subject_area,
+        d.difficulty_level,
+        dr.score_percentage,
+        dr.passed,
+        dr.completed_at,
+        CASE 
+            WHEN dr.id IS NULL THEN 'no_iniciado'
+            WHEN dr.completed_at IS NOT NULL THEN 'completado'
+            ELSE 'en_progreso'
+        END as status
+    FROM diagnostics d
+    LEFT JOIN diagnostic_results dr ON d.id = dr.diagnostic_id AND dr.user_id = p_user_id
+    WHERE d.active = 1
+    ORDER BY 
+    CASE WHEN dr.completed_at IS NULL THEN 1 ELSE 0 END,
+    dr.completed_at DESC,
+    d.created_at DESC;
+END//
+
+DROP PROCEDURE IF EXISTS sp_respuestas_usuario_diagnostico//
+CREATE PROCEDURE sp_respuestas_usuario_diagnostico(
+    IN p_user_id BIGINT,
+    IN p_diagnostic_id BIGINT
+)
+BEGIN
+    SELECT 
+        dr.id,
+        dr.question_id,
+        dq.question_text,
+        dq.question_type,
+        dq.options,
+        dr.user_answer,
+        dq.correct_answer,
+        dr.is_correct,
+        dr.points_earned,
+        dq.points as max_points,
+        dr.time_spent_seconds
+    FROM diagnostic_responses dr
+    INNER JOIN diagnostic_questions dq ON dr.question_id = dq.id
+    WHERE dr.user_id = p_user_id 
+    AND dr.diagnostic_id = p_diagnostic_id
+    ORDER BY dq.order_index;
+END//
+
+DROP PROCEDURE IF EXISTS sp_comparar_rendimiento_usuario//
+CREATE PROCEDURE sp_comparar_rendimiento_usuario(
+    IN p_user_id BIGINT,
+    IN p_diagnostic_id BIGINT
+)
+BEGIN
+    SELECT 
+        dr_user.score_percentage as puntaje_usuario,
+        AVG(dr_all.score_percentage) as puntaje_promedio,
+        dr_user.time_taken_minutes as tiempo_usuario,
+        AVG(dr_all.time_taken_minutes) as tiempo_promedio,
+        CASE 
+            WHEN dr_user.score_percentage > AVG(dr_all.score_percentage) THEN 'superior'
+            WHEN dr_user.score_percentage = AVG(dr_all.score_percentage) THEN 'igual'
+            ELSE 'inferior'
+        END as comparacion_rendimiento
+    FROM diagnostic_results dr_user
+    CROSS JOIN diagnostic_results dr_all
+    WHERE dr_user.user_id = p_user_id
+    AND dr_user.diagnostic_id = p_diagnostic_id
+    AND dr_all.diagnostic_id = p_diagnostic_id
+    GROUP BY dr_user.id, dr_user.score_percentage, dr_user.time_taken_minutes;
+END//
+
+DROP PROCEDURE IF EXISTS sp_diagnosticos_pendientes_usuario//
+CREATE PROCEDURE sp_diagnosticos_pendientes_usuario(IN p_user_id BIGINT)
+BEGIN
+    SELECT 
+        d.id,
+        d.title,
+        d.description,
+        d.subject_area,
+        d.difficulty_level,
+        d.time_limit_minutes
+    FROM diagnostics d
+    WHERE d.active = 1
+    AND d.id NOT IN (
+        SELECT diagnostic_id 
+        FROM diagnostic_results 
+        WHERE user_id = p_user_id
+    )
+    ORDER BY d.created_at DESC;
+END//
+
+DROP PROCEDURE IF EXISTS sp_areas_bajo_rendimiento_usuario//
+CREATE PROCEDURE sp_areas_bajo_rendimiento_usuario(IN p_user_id BIGINT)
+BEGIN
+    SELECT 
+        d.subject_area,
+        COUNT(*) as total_diagnosticos,
+        ROUND(AVG(dr.score_percentage), 2) as promedio_area,
+        SUM(CASE WHEN dr.passed = 0 THEN 1 ELSE 0 END) as diagnosticos_reprobados
+    FROM diagnostic_results dr
+    INNER JOIN diagnostics d ON dr.diagnostic_id = d.id
+    WHERE dr.user_id = p_user_id
+    GROUP BY d.subject_area
+    HAVING AVG(dr.score_percentage) < 70
+    ORDER BY promedio_area ASC;
+END//
+
+DELIMITER ;
+
+-- *********************************************
 -- SECCIÓN 5: STORED PROCEDURES PARA RECOMENDACIONES
--- =============================================
+-- *********************************************
+
+DELIMITER //
 
 DROP PROCEDURE IF EXISTS sp_obtener_recomendaciones//
 CREATE PROCEDURE sp_obtener_recomendaciones(IN p_user_id BIGINT)
@@ -742,9 +1099,64 @@ BEGIN
     );
 END//
 
--- =============================================
+DROP PROCEDURE IF EXISTS sp_contenidos_recomendados_usuario//
+CREATE PROCEDURE sp_contenidos_recomendados_usuario(IN p_user_id BIGINT, IN p_limit INT)
+BEGIN
+    SELECT c.id, c.title, c.description, c.subject_area, c.type,
+           c.difficulty_level, c.content_url, c.duration_minutes, c.views
+    FROM content_library c
+    INNER JOIN student_progress sp ON c.subject_area = sp.subject_area
+    WHERE sp.user_id = p_user_id AND c.active = 1
+    AND c.id NOT IN (
+        SELECT content_id FROM learning_path_content lpc
+        INNER JOIN learning_paths lp ON lpc.learning_path_id = lp.id
+        WHERE lp.user_id = p_user_id AND lpc.is_completed = 1
+    )
+    ORDER BY c.views DESC, c.created_at DESC
+    LIMIT p_limit;
+END//
+
+DELIMITER ;
+
+-- *********************************************
 -- SECCIÓN 6: STORED PROCEDURES PARA RUTAS DE APRENDIZAJE
--- =============================================
+-- *********************************************
+
+DELIMITER //
+
+DROP PROCEDURE IF EXISTS sp_crear_ruta_aprendizaje//
+CREATE PROCEDURE sp_crear_ruta_aprendizaje(
+    IN p_user_id BIGINT,
+    IN p_subject_area VARCHAR(100),
+    IN p_name VARCHAR(255),
+    IN p_description TEXT,
+    IN p_difficulty_level VARCHAR(20),
+    IN p_estimated_duration INT
+)
+BEGIN
+    -- Validar que el usuario exista
+    DECLARE user_exists INT DEFAULT 0;
+    SELECT COUNT(*) INTO user_exists FROM users WHERE id = p_user_id;
+    
+    IF user_exists = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Usuario no encontrado';
+    END IF;
+    
+    -- Insertar la ruta
+    INSERT INTO learning_paths (
+        user_id, subject_area, name, description,
+        difficulty_level, estimated_duration,
+        progress_percentage, is_completed,
+        created_at, updated_at
+    ) VALUES (
+        p_user_id, p_subject_area, p_name, p_description,
+        p_difficulty_level, COALESCE(p_estimated_duration, 0),
+        0, 0, NOW(), NOW()
+    );
+    
+    -- Retornar el ID de la ruta creada
+    SELECT LAST_INSERT_ID() as id;
+END//
 
 DROP PROCEDURE IF EXISTS sp_obtener_rutas_usuario//
 CREATE PROCEDURE sp_obtener_rutas_usuario(IN p_user_id BIGINT)
@@ -812,10 +1224,27 @@ BEGIN
     WHERE id = path_id;
 END//
 
--- =============================================
--- SECCIÓN 7: STORED PROCEDURES PARA SEGUIMIENTOS
--- =============================================
+DROP PROCEDURE IF EXISTS sp_estadisticas_rutas_estudiante//
+CREATE PROCEDURE sp_estadisticas_rutas_estudiante(IN p_user_id BIGINT)
+BEGIN
+    SELECT 
+        COUNT(*) as total_paths,
+        SUM(CASE WHEN is_completed = 1 THEN 1 ELSE 0 END) as completed_paths,
+        ROUND(AVG(progress_percentage), 2) as avg_progress,
+        SUM(estimated_duration) as total_estimated_duration
+    FROM learning_paths
+    WHERE user_id = p_user_id;
+END//
 
+DELIMITER ;
+
+-- *********************************************
+-- SECCIÓN 7: STORED PROCEDURES PARA SEGUIMIENTOS (FOLLOW-UPS)
+-- *********************************************
+
+DELIMITER //
+
+-- 7.1: CRUD DE SEGUIMIENTOS
 DROP PROCEDURE IF EXISTS sp_crear_seguimiento//
 CREATE PROCEDURE sp_crear_seguimiento(
     IN p_user_id BIGINT,
@@ -849,6 +1278,32 @@ BEGIN
     WHERE f.id = p_id;
 END//
 
+DROP PROCEDURE IF EXISTS sp_actualizar_seguimiento//
+CREATE PROCEDURE sp_actualizar_seguimiento(
+    IN p_id BIGINT,
+    IN p_scheduled_at DATETIME,
+    IN p_type VARCHAR(20),
+    IN p_notes TEXT
+)
+BEGIN
+    UPDATE follow_ups
+    SET scheduled_at = p_scheduled_at,
+        type = p_type,
+        notes = p_notes,
+        updated_at = NOW()
+    WHERE id = p_id;
+    
+    SELECT ROW_COUNT() as affected_rows;
+END//
+
+DROP PROCEDURE IF EXISTS sp_eliminar_seguimiento//
+CREATE PROCEDURE sp_eliminar_seguimiento(IN p_id BIGINT)
+BEGIN
+    DELETE FROM follow_ups WHERE id = p_id;
+    SELECT ROW_COUNT() as affected_rows;
+END//
+
+-- 7.2: ESTADOS Y LISTADOS
 DROP PROCEDURE IF EXISTS sp_listar_seguimientos_usuario//
 CREATE PROCEDURE sp_listar_seguimientos_usuario(IN p_user_id BIGINT)
 BEGIN
@@ -897,10 +1352,15 @@ BEGIN
     SELECT ROW_COUNT() as affected_rows;
 END//
 
--- =============================================
--- SECCIÓN 8: STORED PROCEDURES PARA DASHBOARDS
--- =============================================
+DELIMITER ;
 
+-- *********************************************
+-- SECCIÓN 8: STORED PROCEDURES PARA DASHBOARDS Y ESTADÍSTICAS GENERALES
+-- *********************************************
+
+DELIMITER //
+
+-- 8.1: DASHBOARDS
 DROP PROCEDURE IF EXISTS sp_dashboard_estudiante//
 CREATE PROCEDURE sp_dashboard_estudiante(IN p_user_id BIGINT)
 BEGIN
@@ -953,6 +1413,7 @@ BEGIN
     FROM diagnostic_results WHERE completed_at >= DATE_SUB(NOW(), INTERVAL 30 DAY);
 END//
 
+-- 8.2: ESTADÍSTICAS
 DROP PROCEDURE IF EXISTS sp_estudiantes_por_carrera//
 CREATE PROCEDURE sp_estudiantes_por_carrera()
 BEGIN
@@ -976,277 +1437,283 @@ BEGIN
     FROM DUAL;
 END//
 
-DELIMITER ;
-
--- =============================================
--- STORED PROCEDURES ADICIONALES PARA ESTADÍSTICAS
--- =============================================
-
-USE `bd_microlearning_uc`;
-
-DELIMITER //
-
--- SP: Contar diagnósticos completados por usuario
-DROP PROCEDURE IF EXISTS sp_contar_diagnosticos_completados//
-CREATE PROCEDURE sp_contar_diagnosticos_completados(IN p_user_id BIGINT)
+DROP PROCEDURE IF EXISTS sp_estadisticas_estudiante//
+CREATE PROCEDURE sp_estadisticas_estudiante(IN p_user_id BIGINT)
 BEGIN
-    SELECT COUNT(*) as total 
-    FROM diagnostic_results 
+    -- Progreso general
+    SELECT 
+        COUNT(DISTINCT sp.subject_area) as total_subjects,
+        ROUND(AVG(sp.progress_percentage), 2) as avg_progress,
+        SUM(sp.completed_activities) as total_completed_activities,
+        SUM(sp.total_time_spent) as total_study_time,
+        MAX(sp.last_activity) as last_activity
+    FROM student_progress sp
+    WHERE sp.user_id = p_user_id;
+    
+    -- Diagnósticos
+    SELECT 
+        COUNT(*) as total_diagnostics,
+        ROUND(AVG(score_percentage), 2) as avg_diagnostic_score,
+        SUM(CASE WHEN passed = 1 THEN 1 ELSE 0 END) as passed_diagnostics
+    FROM diagnostic_results
     WHERE user_id = p_user_id;
-END//
-
--- SP: Obtener rendimiento de un estudiante
-DROP PROCEDURE IF EXISTS sp_obtener_rendimiento_estudiante//
-CREATE PROCEDURE sp_obtener_rendimiento_estudiante(IN p_user_id BIGINT)
-BEGIN
+    
+    -- Rutas de aprendizaje
     SELECT 
-        COUNT(*) as total_responses,
-        SUM(CASE WHEN is_correct = 1 THEN 1 ELSE 0 END) as correct_responses,
-        ROUND((SUM(CASE WHEN is_correct = 1 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) as percentage
-    FROM diagnostic_responses
+        COUNT(*) as total_paths,
+        SUM(CASE WHEN is_completed = 1 THEN 1 ELSE 0 END) as completed_paths,
+        SUM(CASE WHEN is_completed = 0 THEN 1 ELSE 0 END) as active_paths
+    FROM learning_paths
     WHERE user_id = p_user_id;
-END//
-
--- SP: Obtener rendimiento por mes (últimos 6 meses)
-DROP PROCEDURE IF EXISTS sp_obtener_rendimiento_por_mes//
-CREATE PROCEDURE sp_obtener_rendimiento_por_mes()
-BEGIN
+    
+    -- Recomendaciones
     SELECT 
-        MONTH(dr.created_at) as month,
-        YEAR(dr.created_at) as year,
-        COUNT(*) as total_attempts,
-        SUM(CASE WHEN dr.is_correct = 1 THEN 1 ELSE 0 END) as correct_answers,
-        ROUND((SUM(CASE WHEN dr.is_correct = 1 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) as avg_score
-    FROM diagnostic_responses dr
-    WHERE dr.created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
-    GROUP BY year, month
-    ORDER BY year DESC, month DESC;
-END//
-
--- SP: Obtener historial de diagnósticos de un usuario
-DROP PROCEDURE IF EXISTS sp_historial_diagnosticos_usuario//
-CREATE PROCEDURE sp_historial_diagnosticos_usuario(IN p_user_id BIGINT)
-BEGIN
-    SELECT 
-        dr.id,
-        dr.completed_at,
-        dr.score_percentage,
-        dr.passed,
-        dr.time_taken_minutes,
-        d.title as diagnostic_title,
-        d.subject_area,
-        d.difficulty_level,
-        d.id as diagnostic_id
-    FROM diagnostic_results dr
-    INNER JOIN diagnostics d ON dr.diagnostic_id = d.id
-    WHERE dr.user_id = p_user_id
-    ORDER BY dr.completed_at DESC;
+        COUNT(*) as total_recommendations,
+        SUM(CASE WHEN is_viewed = 1 THEN 1 ELSE 0 END) as viewed_recommendations,
+        SUM(CASE WHEN is_completed = 1 THEN 1 ELSE 0 END) as completed_recommendations
+    FROM recommendations
+    WHERE user_id = p_user_id;
 END//
 
 DELIMITER ;
 
-SELECT '✅ Stored Procedures adicionales creados correctamente' as status;
-
-USE `bd_microlearning_uc`;
+-- *********************************************
+-- SECCIÓN 9: STORED PROCEDURES PARA ANÁLISIS ML (ml_analysis)
+-- *********************************************
 
 DELIMITER //
 
--- =============================================
--- SP: Obtener diagnóstico por ID
--- =============================================
-DROP PROCEDURE IF EXISTS sp_obtener_diagnostico//
-CREATE PROCEDURE sp_obtener_diagnostico(IN p_id BIGINT)
-BEGIN
-    SELECT 
-        id, title, description, subject_area, difficulty_level,
-        time_limit_minutes, passing_score, active, created_at, updated_at
-    FROM diagnostics
-    WHERE id = p_id;
-END//
-
--- =============================================
--- SP: Crear diagnóstico
--- =============================================
-DROP PROCEDURE IF EXISTS sp_crear_diagnostico//
-CREATE PROCEDURE sp_crear_diagnostico(
-    IN p_title VARCHAR(255),
-    IN p_description TEXT,
-    IN p_subject_area VARCHAR(100),
-    IN p_difficulty_level VARCHAR(20),
-    IN p_time_limit_minutes INT,
-    IN p_passing_score DECIMAL(5,2)
+-- 9.1: CRUD Y LISTADO
+DROP PROCEDURE IF EXISTS sp_crear_analisis//
+CREATE PROCEDURE sp_crear_analisis(
+    IN p_user_id BIGINT,
+    IN p_diagnostico VARCHAR(50),
+    IN p_ruta_aprendizaje VARCHAR(100),
+    IN p_nivel_riesgo VARCHAR(50),
+    IN p_metricas JSON,
+    IN p_recomendaciones JSON
 )
 BEGIN
-    INSERT INTO diagnostics (
-        title, description, subject_area, difficulty_level,
-        time_limit_minutes, passing_score, active, created_at, updated_at
+    INSERT INTO ml_analysis (
+        user_id, diagnostico, ruta_aprendizaje, nivel_riesgo,
+        metricas, recomendaciones, created_at, updated_at
     ) VALUES (
-        p_title, p_description, p_subject_area, p_difficulty_level,
-        p_time_limit_minutes, p_passing_score, 1, NOW(), NOW()
+        p_user_id, p_diagnostico, p_ruta_aprendizaje, p_nivel_riesgo,
+        p_metricas, p_recomendaciones, NOW(), NOW()
     );
     
     SELECT LAST_INSERT_ID() as id;
 END//
 
--- =============================================
--- SP: Actualizar diagnóstico
--- =============================================
-DROP PROCEDURE IF EXISTS sp_actualizar_diagnostico//
-CREATE PROCEDURE sp_actualizar_diagnostico(
-    IN p_id BIGINT,
-    IN p_title VARCHAR(255),
-    IN p_description TEXT,
-    IN p_subject_area VARCHAR(100),
-    IN p_difficulty_level VARCHAR(20),
-    IN p_time_limit_minutes INT,
-    IN p_passing_score DECIMAL(5,2),
-    IN p_active BOOLEAN
-)
-BEGIN
-    UPDATE diagnostics
-    SET title = p_title,
-        description = p_description,
-        subject_area = p_subject_area,
-        difficulty_level = p_difficulty_level,
-        time_limit_minutes = p_time_limit_minutes,
-        passing_score = p_passing_score,
-        active = p_active,
-        updated_at = NOW()
-    WHERE id = p_id;
-    
-    SELECT ROW_COUNT() as affected_rows;
-END//
-
--- =============================================
--- SP: Eliminar diagnóstico
--- =============================================
-DROP PROCEDURE IF EXISTS sp_eliminar_diagnostico//
-CREATE PROCEDURE sp_eliminar_diagnostico(IN p_id BIGINT)
-BEGIN
-    DELETE FROM diagnostics WHERE id = p_id;
-    SELECT ROW_COUNT() as affected_rows;
-END//
-
--- =============================================
--- SP: Crear pregunta
--- =============================================
-DROP PROCEDURE IF EXISTS sp_crear_pregunta//
-CREATE PROCEDURE sp_crear_pregunta(
-    IN p_diagnostic_id BIGINT,
-    IN p_question_text TEXT,
-    IN p_question_type VARCHAR(20),
-    IN p_options JSON,
-    IN p_correct_answer TEXT,
-    IN p_points DECIMAL(4,2)
-)
-BEGIN
-    DECLARE max_order INT DEFAULT 0;
-    
-    SELECT COALESCE(MAX(order_index), 0) INTO max_order
-    FROM diagnostic_questions
-    WHERE diagnostic_id = p_diagnostic_id;
-    
-    INSERT INTO diagnostic_questions (
-        diagnostic_id, question_text, question_type, options,
-        correct_answer, points, order_index, created_at, updated_at
-    ) VALUES (
-        p_diagnostic_id, p_question_text, p_question_type, p_options,
-        p_correct_answer, p_points, max_order + 1, NOW(), NOW()
-    );
-    
-    SELECT LAST_INSERT_ID() as id;
-END//
-
--- =============================================
--- SP: Obtener pregunta por ID
--- =============================================
-DROP PROCEDURE IF EXISTS sp_obtener_pregunta//
-CREATE PROCEDURE sp_obtener_pregunta(IN p_id BIGINT)
+DROP PROCEDURE IF EXISTS sp_obtener_analisis_ml//
+CREATE PROCEDURE sp_obtener_analisis_ml(IN p_id BIGINT)
 BEGIN
     SELECT 
-        id, diagnostic_id, question_text, question_type, options,
-        correct_answer, points, order_index, created_at, updated_at
-    FROM diagnostic_questions
-    WHERE id = p_id;
+        ma.id, ma.user_id, ma.diagnostico, ma.ruta_aprendizaje,
+        ma.nivel_riesgo, ma.metricas, ma.recomendaciones,
+        ma.created_at, ma.updated_at,
+        u.name as student_name, u.email as student_email,
+        u.career, u.semester
+    FROM ml_analysis ma
+    INNER JOIN users u ON ma.user_id = u.id
+    WHERE ma.id = p_id;
 END//
 
--- =============================================
--- SP: Actualizar pregunta
--- =============================================
-DROP PROCEDURE IF EXISTS sp_actualizar_pregunta//
-CREATE PROCEDURE sp_actualizar_pregunta(
+DROP PROCEDURE IF EXISTS sp_actualizar_analisis_ml//
+CREATE PROCEDURE sp_actualizar_analisis_ml(
     IN p_id BIGINT,
-    IN p_question_text TEXT,
-    IN p_question_type VARCHAR(20),
-    IN p_options JSON,
-    IN p_correct_answer TEXT,
-    IN p_points DECIMAL(4,2)
+    IN p_diagnostico VARCHAR(50),
+    IN p_ruta_aprendizaje VARCHAR(100),
+    IN p_nivel_riesgo VARCHAR(50),
+    IN p_metricas JSON,
+    IN p_recomendaciones JSON
 )
 BEGIN
-    UPDATE diagnostic_questions
-    SET question_text = p_question_text,
-        question_type = p_question_type,
-        options = p_options,
-        correct_answer = p_correct_answer,
-        points = p_points,
+    UPDATE ml_analysis
+    SET diagnostico = p_diagnostico,
+        ruta_aprendizaje = p_ruta_aprendizaje,
+        nivel_riesgo = p_nivel_riesgo,
+        metricas = p_metricas,
+        recomendaciones = p_recomendaciones,
         updated_at = NOW()
     WHERE id = p_id;
     
     SELECT ROW_COUNT() as affected_rows;
 END//
 
--- =============================================
--- SP: Eliminar pregunta
--- =============================================
-DROP PROCEDURE IF EXISTS sp_eliminar_pregunta//
-CREATE PROCEDURE sp_eliminar_pregunta(IN p_id BIGINT)
+DROP PROCEDURE IF EXISTS sp_eliminar_analisis_ml//
+CREATE PROCEDURE sp_eliminar_analisis_ml(IN p_id BIGINT)
 BEGIN
-    DELETE FROM diagnostic_questions WHERE id = p_id;
-    SELECT ROW_COUNT() as affected_rows;
+    DELETE FROM ml_analysis WHERE id = p_id;
+    SELECT ROW_COUNT() as deleted_rows;
 END//
 
-DELIMITER ;
-
-SELECT '✅ Stored Procedures para diagnósticos creados' as status;
-
-DELIMITER //
-
--- SP: Actualizar seguimiento
-DROP PROCEDURE IF EXISTS sp_actualizar_seguimiento//
-CREATE PROCEDURE sp_actualizar_seguimiento(
-    IN p_id BIGINT,
-    IN p_scheduled_at DATETIME,
-    IN p_type VARCHAR(20),
-    IN p_notes TEXT
+-- 9.2: BÚSQUEDA Y FILTROS
+DROP PROCEDURE IF EXISTS sp_listar_analisis_ml//
+CREATE PROCEDURE sp_listar_analisis_ml(
+    IN p_page INT,
+    IN p_per_page INT
 )
 BEGIN
-    UPDATE follow_ups
-    SET scheduled_at = p_scheduled_at,
-        type = p_type,
-        notes = p_notes,
-        updated_at = NOW()
-    WHERE id = p_id;
+    DECLARE v_offset INT;
+    SET v_offset = (p_page - 1) * p_per_page;
     
-    SELECT ROW_COUNT() as affected_rows;
+    SELECT 
+        ma.id, ma.user_id, ma.diagnostico, ma.ruta_aprendizaje,
+        ma.nivel_riesgo, ma.created_at,ma.metricas,
+        u.name as student_name, u.email as student_email,
+        U.student_code,
+        u.career AS student_career
+    FROM ml_analysis ma
+    INNER JOIN users u ON ma.user_id = u.id
+    ORDER BY ma.created_at DESC
+    LIMIT p_per_page OFFSET v_offset;
 END//
 
--- SP: Eliminar seguimiento
-DROP PROCEDURE IF EXISTS sp_eliminar_seguimiento//
-CREATE PROCEDURE sp_eliminar_seguimiento(IN p_id BIGINT)
+DROP PROCEDURE IF EXISTS sp_buscar_analisis_ml//
+CREATE PROCEDURE sp_buscar_analisis_ml(
+    IN p_user_id BIGINT,
+    IN p_diagnostico VARCHAR(50),
+    IN p_nivel_riesgo VARCHAR(50),
+    IN p_fecha_desde DATE,
+    IN p_fecha_hasta DATE
+)
 BEGIN
-    DELETE FROM follow_ups WHERE id = p_id;
-    SELECT ROW_COUNT() as affected_rows;
+    SELECT 
+        ma.id, ma.user_id, ma.diagnostico, ma.ruta_aprendizaje,
+        ma.nivel_riesgo, ma.created_at,
+        u.name as student_name, u.email as student_email
+    FROM ml_analysis ma
+    INNER JOIN users u ON ma.user_id = u.id
+    WHERE (p_user_id IS NULL OR ma.user_id = p_user_id)
+    AND (p_diagnostico IS NULL OR ma.diagnostico = p_diagnostico)
+    AND (p_nivel_riesgo IS NULL OR ma.nivel_riesgo = p_nivel_riesgo)
+    AND (p_fecha_desde IS NULL OR ma.created_at >= p_fecha_desde)
+    AND (p_fecha_hasta IS NULL OR ma.created_at <= p_fecha_hasta)
+    ORDER BY ma.created_at DESC;
+END//
+
+DROP PROCEDURE IF EXISTS sp_obtener_analisis_por_fechas_ml//
+CREATE PROCEDURE sp_obtener_analisis_por_fechas_ml(
+    IN p_fecha_inicio DATE,
+    IN p_fecha_fin DATE
+)
+BEGIN
+    SELECT 
+        ma.id, ma.user_id, ma.diagnostico, ma.nivel_riesgo,
+        ma.created_at,
+        u.name as student_name
+    FROM ml_analysis ma
+    INNER JOIN users u ON ma.user_id = u.id
+    WHERE ma.created_at BETWEEN p_fecha_inicio AND p_fecha_fin
+    ORDER BY ma.created_at DESC;
+END//
+
+DROP PROCEDURE IF EXISTS sp_obtener_analisis_alto_riesgo_ml//
+CREATE PROCEDURE sp_obtener_analisis_alto_riesgo_ml()
+BEGIN
+    SELECT 
+        ma.id, ma.user_id, ma.diagnostico, ma.nivel_riesgo,
+        ma.created_at,
+        u.name as student_name, u.email as student_email
+    FROM ml_analysis ma
+    INNER JOIN users u ON ma.user_id = u.id
+    WHERE ma.nivel_riesgo = 'alto'
+    ORDER BY ma.created_at DESC;
+END//
+
+-- 9.3: ANÁLISIS POR USUARIO
+DROP PROCEDURE IF EXISTS sp_obtener_analisis_reciente_ml//
+CREATE PROCEDURE sp_obtener_analisis_reciente_ml(IN p_user_id BIGINT)
+BEGIN
+    SELECT 
+        id, user_id, diagnostico, ruta_aprendizaje, nivel_riesgo,
+        metricas, recomendaciones, created_at
+    FROM ml_analysis
+    WHERE user_id = p_user_id
+    ORDER BY created_at DESC
+    LIMIT 1;
+END//
+
+DROP PROCEDURE IF EXISTS sp_obtener_historial_usuario_ml//
+CREATE PROCEDURE sp_obtener_historial_usuario_ml(IN p_user_id BIGINT)
+BEGIN
+    SELECT 
+        id, diagnostico, ruta_aprendizaje, nivel_riesgo, created_at
+    FROM ml_analysis
+    WHERE user_id = p_user_id
+    ORDER BY created_at DESC;
+END//
+
+-- 9.4: ESTADÍSTICAS Y MANTENIMIENTO
+DROP PROCEDURE IF EXISTS sp_contar_analisis_ml//
+CREATE PROCEDURE sp_contar_analisis_ml()
+BEGIN
+    SELECT COUNT(*) as total FROM ml_analysis;
+END//
+
+DROP PROCEDURE IF EXISTS sp_obtener_estadisticas_ml//
+CREATE PROCEDURE sp_obtener_estadisticas_ml()
+BEGIN
+    SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN diagnostico = 'basico' THEN 1 ELSE 0 END) as diagnostico_basico,
+        SUM(CASE WHEN diagnostico = 'intermedio' THEN 1 ELSE 0 END) as diagnostico_intermedio,
+        SUM(CASE WHEN diagnostico = 'avanzado' THEN 1 ELSE 0 END) as diagnostico_avanzado,
+        SUM(CASE WHEN nivel_riesgo = 'alto' THEN 1 ELSE 0 END) as riesgo_alto,
+        SUM(CASE WHEN nivel_riesgo = 'medio' THEN 1 ELSE 0 END) as riesgo_medio,
+        SUM(CASE WHEN nivel_riesgo = 'bajo' THEN 1 ELSE 0 END) as riesgo_bajo
+    FROM ml_analysis;
+END//
+
+DROP PROCEDURE IF EXISTS sp_contar_por_diagnostico_ml//
+CREATE PROCEDURE sp_contar_por_diagnostico_ml(IN p_nivel VARCHAR(50))
+BEGIN
+    SELECT COUNT(*) as total
+    FROM ml_analysis
+    WHERE diagnostico = p_nivel;
+END//
+
+DROP PROCEDURE IF EXISTS sp_contar_por_riesgo_ml//
+CREATE PROCEDURE sp_contar_por_riesgo_ml(IN p_nivel VARCHAR(50))
+BEGIN
+    SELECT COUNT(*) as total
+    FROM ml_analysis
+    WHERE nivel_riesgo = p_nivel;
+END//
+
+DROP PROCEDURE IF EXISTS sp_eliminar_antiguos_ml//
+CREATE PROCEDURE sp_eliminar_antiguos_ml(IN p_days INT)
+BEGIN
+    DELETE FROM ml_analysis
+    WHERE created_at < DATE_SUB(NOW(), INTERVAL p_days DAY);
+    
+    SELECT ROW_COUNT() as deleted_rows;
+END//
+
+DROP PROCEDURE IF EXISTS sp_obtener_estudiantes_sin_analisis_ml//
+CREATE PROCEDURE sp_obtener_estudiantes_sin_analisis_ml()
+BEGIN
+    SELECT u.id, u.name, u.email, u.career
+    FROM users u
+    WHERE u.role_id = 3 
+    AND u.active = 1
+    AND u.id NOT IN (
+        SELECT user_id 
+        FROM ml_analysis 
+        WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+    )
+    ORDER BY u.name;
 END//
 
 DELIMITER ;
 
-USE `bd_microlearning_uc`;
+-- *********************************************
+-- SECCIÓN 10: STORED PROCEDURES PARA RIESGO Y ALERTAS
+-- *********************************************
 
 DELIMITER //
 
--- =============================================
--- SP: Obtener alertas de riesgo
--- =============================================
 DROP PROCEDURE IF EXISTS sp_obtener_alertas_riesgo//
 CREATE PROCEDURE sp_obtener_alertas_riesgo(IN p_user_id BIGINT)
 BEGIN
@@ -1293,9 +1760,6 @@ BEGIN
     HAVING SUM(completed_activities) < 5;
 END//
 
--- =============================================
--- SP: Calcular nivel de riesgo
--- =============================================
 DROP PROCEDURE IF EXISTS sp_calcular_nivel_riesgo//
 CREATE PROCEDURE sp_calcular_nivel_riesgo(IN p_user_id BIGINT)
 BEGIN
@@ -1314,761 +1778,18 @@ BEGIN
     GROUP BY sp.user_id;
 END//
 
--- =============================================
--- SP: Estadísticas de rutas del estudiante
--- =============================================
-DROP PROCEDURE IF EXISTS sp_estadisticas_rutas_estudiante//
-CREATE PROCEDURE sp_estadisticas_rutas_estudiante(IN p_user_id BIGINT)
-BEGIN
-    SELECT 
-        COUNT(*) as total_paths,
-        SUM(CASE WHEN is_completed = 1 THEN 1 ELSE 0 END) as completed_paths,
-        ROUND(AVG(progress_percentage), 2) as avg_progress,
-        SUM(estimated_duration) as total_estimated_duration
-    FROM learning_paths
-    WHERE user_id = p_user_id;
-END//
-
--- =============================================
--- SP: Obtener estadísticas generales del estudiante
--- =============================================
-DROP PROCEDURE IF EXISTS sp_estadisticas_estudiante//
-CREATE PROCEDURE sp_estadisticas_estudiante(IN p_user_id BIGINT)
-BEGIN
-    -- Progreso general
-    SELECT 
-        COUNT(DISTINCT sp.subject_area) as total_subjects,
-        ROUND(AVG(sp.progress_percentage), 2) as avg_progress,
-        SUM(sp.completed_activities) as total_completed_activities,
-        SUM(sp.total_time_spent) as total_study_time,
-        MAX(sp.last_activity) as last_activity
-    FROM student_progress sp
-    WHERE sp.user_id = p_user_id;
-    
-    -- Diagnósticos
-    SELECT 
-        COUNT(*) as total_diagnostics,
-        ROUND(AVG(score_percentage), 2) as avg_diagnostic_score,
-        SUM(CASE WHEN passed = 1 THEN 1 ELSE 0 END) as passed_diagnostics
-    FROM diagnostic_results
-    WHERE user_id = p_user_id;
-    
-    -- Rutas de aprendizaje
-    SELECT 
-        COUNT(*) as total_paths,
-        SUM(CASE WHEN is_completed = 1 THEN 1 ELSE 0 END) as completed_paths,
-        SUM(CASE WHEN is_completed = 0 THEN 1 ELSE 0 END) as active_paths
-    FROM learning_paths
-    WHERE user_id = p_user_id;
-    
-    -- Recomendaciones
-    SELECT 
-        COUNT(*) as total_recommendations,
-        SUM(CASE WHEN is_viewed = 1 THEN 1 ELSE 0 END) as viewed_recommendations,
-        SUM(CASE WHEN is_completed = 1 THEN 1 ELSE 0 END) as completed_recommendations
-    FROM recommendations
-    WHERE user_id = p_user_id;
-END//
-
 DELIMITER ;
 
-SELECT '✅ Stored Procedures adicionales creados correctamente' as status;
+-- *********************************************
+-- VERIFICACIÓN FINAL
+-- *********************************************
 
-
--- ==========================================
--- STORED PROCEDURES PARA ML_ANALYSIS
--- Agregar al archivo de stored procedures existente
--- ==========================================
-
-USE `bd_microlearning_uc`;
-
-DELIMITER //
-
--- 1. Crear un nuevo análisis
-DROP PROCEDURE IF EXISTS sp_crear_analisis//
-CREATE PROCEDURE sp_crear_analisis(
-    IN p_user_id BIGINT,
-    IN p_diagnostico VARCHAR(50),
-    IN p_ruta_aprendizaje VARCHAR(100),
-    IN p_nivel_riesgo VARCHAR(50),
-    IN p_metricas JSON,
-    IN p_recomendaciones JSON
-)
-BEGIN
-    INSERT INTO ml_analysis (
-        user_id, diagnostico, ruta_aprendizaje, nivel_riesgo,
-        metricas, recomendaciones, created_at, updated_at
-    ) VALUES (
-        p_user_id, p_diagnostico, p_ruta_aprendizaje, p_nivel_riesgo,
-        p_metricas, p_recomendaciones, NOW(), NOW()
-    );
-    
-    SELECT LAST_INSERT_ID() as id;
-END//
-
--- 2. Obtener análisis por ID
-DROP PROCEDURE IF EXISTS sp_obtener_analisis_ml//
-CREATE PROCEDURE sp_obtener_analisis_ml(IN p_id BIGINT)
-BEGIN
-    SELECT 
-        ma.id, ma.user_id, ma.diagnostico, ma.ruta_aprendizaje,
-        ma.nivel_riesgo, ma.metricas, ma.recomendaciones,
-        ma.created_at, ma.updated_at,
-        u.name as student_name, u.email as student_email,
-        u.career, u.semester
-    FROM ml_analysis ma
-    INNER JOIN users u ON ma.user_id = u.id
-    WHERE ma.id = p_id;
-END//
-
-USE `bd_microlearning_uc`;
-
-DELIMITER //
--- 3. Listar análisis con paginación
-DROP PROCEDURE IF EXISTS sp_listar_analisis_ml//
-CREATE PROCEDURE sp_listar_analisis_ml(
-    IN p_page INT,
-    IN p_per_page INT
-)
-BEGIN
-    DECLARE v_offset INT;
-    SET v_offset = (p_page - 1) * p_per_page;
-    
-    SELECT 
-        ma.id, ma.user_id, ma.diagnostico, ma.ruta_aprendizaje,
-        ma.nivel_riesgo, ma.created_at,ma.metricas,
-        u.name as student_name, u.email as student_email,
-        U.student_code,
-        u.career AS student_career
-    FROM ml_analysis ma
-    INNER JOIN users u ON ma.user_id = u.id
-    ORDER BY ma.created_at DESC
-    LIMIT p_per_page OFFSET v_offset;
-END//
-DELIMITER //
--- 4. Contar total de análisis
-DROP PROCEDURE IF EXISTS sp_contar_analisis_ml//
-CREATE PROCEDURE sp_contar_analisis_ml()
-BEGIN
-    SELECT COUNT(*) as total FROM ml_analysis;
-END//
-
--- 5. Obtener análisis más reciente de un usuario
-DROP PROCEDURE IF EXISTS sp_obtener_analisis_reciente_ml//
-CREATE PROCEDURE sp_obtener_analisis_reciente_ml(IN p_user_id BIGINT)
-BEGIN
-    SELECT 
-        id, user_id, diagnostico, ruta_aprendizaje, nivel_riesgo,
-        metricas, recomendaciones, created_at
-    FROM ml_analysis
-    WHERE user_id = p_user_id
-    ORDER BY created_at DESC
-    LIMIT 1;
-END//
-
--- 6. Obtener historial de análisis de un usuario
-DROP PROCEDURE IF EXISTS sp_obtener_historial_usuario_ml//
-CREATE PROCEDURE sp_obtener_historial_usuario_ml(IN p_user_id BIGINT)
-BEGIN
-    SELECT 
-        id, diagnostico, ruta_aprendizaje, nivel_riesgo, created_at
-    FROM ml_analysis
-    WHERE user_id = p_user_id
-    ORDER BY created_at DESC;
-END//
-
--- 7. Obtener estadísticas generales
-DROP PROCEDURE IF EXISTS sp_obtener_estadisticas_ml//
-CREATE PROCEDURE sp_obtener_estadisticas_ml()
-BEGIN
-    SELECT 
-        COUNT(*) as total,
-        SUM(CASE WHEN diagnostico = 'basico' THEN 1 ELSE 0 END) as diagnostico_basico,
-        SUM(CASE WHEN diagnostico = 'intermedio' THEN 1 ELSE 0 END) as diagnostico_intermedio,
-        SUM(CASE WHEN diagnostico = 'avanzado' THEN 1 ELSE 0 END) as diagnostico_avanzado,
-        SUM(CASE WHEN nivel_riesgo = 'alto' THEN 1 ELSE 0 END) as riesgo_alto,
-        SUM(CASE WHEN nivel_riesgo = 'medio' THEN 1 ELSE 0 END) as riesgo_medio,
-        SUM(CASE WHEN nivel_riesgo = 'bajo' THEN 1 ELSE 0 END) as riesgo_bajo
-    FROM ml_analysis;
-END//
-
--- 8. Contar análisis por diagnóstico
-DROP PROCEDURE IF EXISTS sp_contar_por_diagnostico_ml//
-CREATE PROCEDURE sp_contar_por_diagnostico_ml(IN p_nivel VARCHAR(50))
-BEGIN
-    SELECT COUNT(*) as total
-    FROM ml_analysis
-    WHERE diagnostico = p_nivel;
-END//
-
--- 9. Contar análisis por nivel de riesgo
-DROP PROCEDURE IF EXISTS sp_contar_por_riesgo_ml//
-CREATE PROCEDURE sp_contar_por_riesgo_ml(IN p_nivel VARCHAR(50))
-BEGIN
-    SELECT COUNT(*) as total
-    FROM ml_analysis
-    WHERE nivel_riesgo = p_nivel;
-END//
-
--- 10. Actualizar un análisis existente
-DROP PROCEDURE IF EXISTS sp_actualizar_analisis_ml//
-CREATE PROCEDURE sp_actualizar_analisis_ml(
-    IN p_id BIGINT,
-    IN p_diagnostico VARCHAR(50),
-    IN p_ruta_aprendizaje VARCHAR(100),
-    IN p_nivel_riesgo VARCHAR(50),
-    IN p_metricas JSON,
-    IN p_recomendaciones JSON
-)
-BEGIN
-    UPDATE ml_analysis
-    SET diagnostico = p_diagnostico,
-        ruta_aprendizaje = p_ruta_aprendizaje,
-        nivel_riesgo = p_nivel_riesgo,
-        metricas = p_metricas,
-        recomendaciones = p_recomendaciones,
-        updated_at = NOW()
-    WHERE id = p_id;
-    
-    SELECT ROW_COUNT() as affected_rows;
-END//
-
--- 11. Eliminar análisis antiguos
-DROP PROCEDURE IF EXISTS sp_eliminar_antiguos_ml//
-CREATE PROCEDURE sp_eliminar_antiguos_ml(IN p_days INT)
-BEGIN
-    DELETE FROM ml_analysis
-    WHERE created_at < DATE_SUB(NOW(), INTERVAL p_days DAY);
-    
-    SELECT ROW_COUNT() as deleted_rows;
-END//
-
--- 12. Obtener estudiantes sin análisis reciente
-DROP PROCEDURE IF EXISTS sp_obtener_estudiantes_sin_analisis_ml//
-CREATE PROCEDURE sp_obtener_estudiantes_sin_analisis_ml()
-BEGIN
-    SELECT u.id, u.name, u.email, u.career
-    FROM users u
-    WHERE u.role_id = 3 
-    AND u.active = 1
-    AND u.id NOT IN (
-        SELECT user_id 
-        FROM ml_analysis 
-        WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-    )
-    ORDER BY u.name;
-END//
-
--- 13. Buscar análisis con filtros múltiples
-DROP PROCEDURE IF EXISTS sp_buscar_analisis_ml//
-CREATE PROCEDURE sp_buscar_analisis_ml(
-    IN p_user_id BIGINT,
-    IN p_diagnostico VARCHAR(50),
-    IN p_nivel_riesgo VARCHAR(50),
-    IN p_fecha_desde DATE,
-    IN p_fecha_hasta DATE
-)
-BEGIN
-    SELECT 
-        ma.id, ma.user_id, ma.diagnostico, ma.ruta_aprendizaje,
-        ma.nivel_riesgo, ma.created_at,
-        u.name as student_name, u.email as student_email
-    FROM ml_analysis ma
-    INNER JOIN users u ON ma.user_id = u.id
-    WHERE (p_user_id IS NULL OR ma.user_id = p_user_id)
-    AND (p_diagnostico IS NULL OR ma.diagnostico = p_diagnostico)
-    AND (p_nivel_riesgo IS NULL OR ma.nivel_riesgo = p_nivel_riesgo)
-    AND (p_fecha_desde IS NULL OR ma.created_at >= p_fecha_desde)
-    AND (p_fecha_hasta IS NULL OR ma.created_at <= p_fecha_hasta)
-    ORDER BY ma.created_at DESC;
-END//
-
--- 14. Eliminar un análisis específico
-DROP PROCEDURE IF EXISTS sp_eliminar_analisis_ml//
-CREATE PROCEDURE sp_eliminar_analisis_ml(IN p_id BIGINT)
-BEGIN
-    DELETE FROM ml_analysis WHERE id = p_id;
-    SELECT ROW_COUNT() as deleted_rows;
-END//
-
--- 15. Obtener análisis por rango de fechas
-DROP PROCEDURE IF EXISTS sp_obtener_analisis_por_fechas_ml//
-CREATE PROCEDURE sp_obtener_analisis_por_fechas_ml(
-    IN p_fecha_inicio DATE,
-    IN p_fecha_fin DATE
-)
-BEGIN
-    SELECT 
-        ma.id, ma.user_id, ma.diagnostico, ma.nivel_riesgo,
-        ma.created_at,
-        u.name as student_name
-    FROM ml_analysis ma
-    INNER JOIN users u ON ma.user_id = u.id
-    WHERE ma.created_at BETWEEN p_fecha_inicio AND p_fecha_fin
-    ORDER BY ma.created_at DESC;
-END//
-
--- 16. Obtener análisis con alto riesgo
-DROP PROCEDURE IF EXISTS sp_obtener_analisis_alto_riesgo_ml//
-CREATE PROCEDURE sp_obtener_analisis_alto_riesgo_ml()
-BEGIN
-    SELECT 
-        ma.id, ma.user_id, ma.diagnostico, ma.nivel_riesgo,
-        ma.created_at,
-        u.name as student_name, u.email as student_email
-    FROM ml_analysis ma
-    INNER JOIN users u ON ma.user_id = u.id
-    WHERE ma.nivel_riesgo = 'alto'
-    ORDER BY ma.created_at DESC;
-END//
-
-DELIMITER ;
-
-SELECT '✅ Stored Procedures para ML_ANALYSIS creados correctamente' as status;
-
--- ==========================================
--- STORED PROCEDURES ADICIONALES PARA DIAGNÓSTICOS
--- Agregar al archivo de SPs existente
--- ==========================================
-
-USE `bd_microlearning_uc`;
-
-DELIMITER //
-
--- SP: Contar diagnósticos completados hoy
-DROP PROCEDURE IF EXISTS sp_contar_diagnosticos_hoy//
-CREATE PROCEDURE sp_contar_diagnosticos_hoy()
-BEGIN
-    SELECT COUNT(*) as total
-    FROM diagnostic_results
-    WHERE DATE(completed_at) = CURDATE();
-END//
-
--- SP: Obtener estadísticas de un diagnóstico específico
-DROP PROCEDURE IF EXISTS sp_estadisticas_diagnostico//
-CREATE PROCEDURE sp_estadisticas_diagnostico(IN p_diagnostic_id BIGINT)
-BEGIN
-    SELECT 
-        COUNT(*) as total_intentos,
-        SUM(CASE WHEN passed = 1 THEN 1 ELSE 0 END) as total_aprobados,
-        ROUND(AVG(score_percentage), 2) as promedio_puntaje,
-        MIN(score_percentage) as puntaje_minimo,
-        MAX(score_percentage) as puntaje_maximo,
-        ROUND(AVG(time_taken_minutes), 2) as tiempo_promedio,
-        ROUND((SUM(CASE WHEN passed = 1 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) as porcentaje_aprobacion
-    FROM diagnostic_results
-    WHERE diagnostic_id = p_diagnostic_id;
-END//
-
--- SP: Obtener top estudiantes en un diagnóstico
-DROP PROCEDURE IF EXISTS sp_top_estudiantes_diagnostico//
-CREATE PROCEDURE sp_top_estudiantes_diagnostico(
-    IN p_diagnostic_id BIGINT,
-    IN p_limit INT
-)
-BEGIN
-    SELECT 
-        dr.user_id,
-        u.name as student_name,
-        u.email,
-        dr.score_percentage,
-        dr.time_taken_minutes,
-        dr.completed_at
-    FROM diagnostic_results dr
-    INNER JOIN users u ON dr.user_id = u.id
-    WHERE dr.diagnostic_id = p_diagnostic_id
-    ORDER BY dr.score_percentage DESC, dr.time_taken_minutes ASC
-    LIMIT p_limit;
-END//
-
--- SP: Obtener preguntas más difíciles (menor tasa de acierto)
-DROP PROCEDURE IF EXISTS sp_preguntas_mas_dificiles//
-CREATE PROCEDURE sp_preguntas_mas_dificiles(
-    IN p_diagnostic_id BIGINT,
-    IN p_limit INT
-)
-BEGIN
-    SELECT 
-        dq.id,
-        dq.question_text,
-        dq.question_type,
-        COUNT(dr.id) as total_respuestas,
-        SUM(CASE WHEN dr.is_correct = 1 THEN 1 ELSE 0 END) as respuestas_correctas,
-        ROUND((SUM(CASE WHEN dr.is_correct = 1 THEN 1 ELSE 0 END) / COUNT(dr.id)) * 100, 2) as tasa_acierto
-    FROM diagnostic_questions dq
-    LEFT JOIN diagnostic_responses dr ON dq.id = dr.question_id
-    WHERE dq.diagnostic_id = p_diagnostic_id
-    GROUP BY dq.id, dq.question_text, dq.question_type
-    HAVING COUNT(dr.id) > 0
-    ORDER BY tasa_acierto ASC
-    LIMIT p_limit;
-END//
-
--- SP: Obtener progreso de diagnósticos de un usuario
-DROP PROCEDURE IF EXISTS sp_progreso_diagnosticos_usuario//
-CREATE PROCEDURE sp_progreso_diagnosticos_usuario(IN p_user_id BIGINT)
-BEGIN
-    SELECT 
-        d.id as diagnostic_id,
-        d.title,
-        d.subject_area,
-        d.difficulty_level,
-        dr.score_percentage,
-        dr.passed,
-        dr.completed_at,
-        CASE 
-            WHEN dr.id IS NULL THEN 'no_iniciado'
-            WHEN dr.completed_at IS NOT NULL THEN 'completado'
-            ELSE 'en_progreso'
-        END as status
-    FROM diagnostics d
-    LEFT JOIN diagnostic_results dr ON d.id = dr.diagnostic_id AND dr.user_id = p_user_id
-    WHERE d.active = 1
-    ORDER BY dr.completed_at DESC NULLS LAST, d.created_at DESC;
-END//
-
--- SP: Obtener respuestas de un usuario en un diagnóstico
-DROP PROCEDURE IF EXISTS sp_respuestas_usuario_diagnostico//
-CREATE PROCEDURE sp_respuestas_usuario_diagnostico(
-    IN p_user_id BIGINT,
-    IN p_diagnostic_id BIGINT
-)
-BEGIN
-    SELECT 
-        dr.id,
-        dr.question_id,
-        dq.question_text,
-        dq.question_type,
-        dq.options,
-        dr.user_answer,
-        dq.correct_answer,
-        dr.is_correct,
-        dr.points_earned,
-        dq.points as max_points,
-        dr.time_spent_seconds
-    FROM diagnostic_responses dr
-    INNER JOIN diagnostic_questions dq ON dr.question_id = dq.id
-    WHERE dr.user_id = p_user_id 
-    AND dr.diagnostic_id = p_diagnostic_id
-    ORDER BY dq.order_index;
-END//
-
--- SP: Comparar rendimiento de un usuario con el promedio
-DROP PROCEDURE IF EXISTS sp_comparar_rendimiento_usuario//
-CREATE PROCEDURE sp_comparar_rendimiento_usuario(
-    IN p_user_id BIGINT,
-    IN p_diagnostic_id BIGINT
-)
-BEGIN
-    SELECT 
-        dr_user.score_percentage as puntaje_usuario,
-        AVG(dr_all.score_percentage) as puntaje_promedio,
-        dr_user.time_taken_minutes as tiempo_usuario,
-        AVG(dr_all.time_taken_minutes) as tiempo_promedio,
-        CASE 
-            WHEN dr_user.score_percentage > AVG(dr_all.score_percentage) THEN 'superior'
-            WHEN dr_user.score_percentage = AVG(dr_all.score_percentage) THEN 'igual'
-            ELSE 'inferior'
-        END as comparacion_rendimiento
-    FROM diagnostic_results dr_user
-    CROSS JOIN diagnostic_results dr_all
-    WHERE dr_user.user_id = p_user_id
-    AND dr_user.diagnostic_id = p_diagnostic_id
-    AND dr_all.diagnostic_id = p_diagnostic_id
-    GROUP BY dr_user.id, dr_user.score_percentage, dr_user.time_taken_minutes;
-END//
-
--- SP: Obtener diagnósticos pendientes de un usuario
-DROP PROCEDURE IF EXISTS sp_diagnosticos_pendientes_usuario//
-CREATE PROCEDURE sp_diagnosticos_pendientes_usuario(IN p_user_id BIGINT)
-BEGIN
-    SELECT 
-        d.id,
-        d.title,
-        d.description,
-        d.subject_area,
-        d.difficulty_level,
-        d.time_limit_minutes
-    FROM diagnostics d
-    WHERE d.active = 1
-    AND d.id NOT IN (
-        SELECT diagnostic_id 
-        FROM diagnostic_results 
-        WHERE user_id = p_user_id
-    )
-    ORDER BY d.created_at DESC;
-END//
-
--- SP: Obtener áreas con bajo rendimiento de un usuario
-DROP PROCEDURE IF EXISTS sp_areas_bajo_rendimiento_usuario//
-CREATE PROCEDURE sp_areas_bajo_rendimiento_usuario(IN p_user_id BIGINT)
-BEGIN
-    SELECT 
-        d.subject_area,
-        COUNT(*) as total_diagnosticos,
-        ROUND(AVG(dr.score_percentage), 2) as promedio_area,
-        SUM(CASE WHEN dr.passed = 0 THEN 1 ELSE 0 END) as diagnosticos_reprobados
-    FROM diagnostic_results dr
-    INNER JOIN diagnostics d ON dr.diagnostic_id = d.id
-    WHERE dr.user_id = p_user_id
-    GROUP BY d.subject_area
-    HAVING AVG(dr.score_percentage) < 70
-    ORDER BY promedio_area ASC;
-END//
-
-DELIMITER ;
-
-SELECT '✅ Stored Procedures adicionales para diagnósticos creados' as status;
-
--- ==========================================
--- STORED PROCEDURES ADICIONALES PARA DIAGNÓSTICOS
--- Agregar al archivo de SPs existente
--- ==========================================
-
-USE `bd_microlearning_uc`;
-
-DELIMITER //
-
--- SP: Contar diagnósticos completados hoy
-DROP PROCEDURE IF EXISTS sp_contar_diagnosticos_hoy//
-CREATE PROCEDURE sp_contar_diagnosticos_hoy()
-BEGIN
-    SELECT COUNT(*) as total
-    FROM diagnostic_results
-    WHERE DATE(completed_at) = CURDATE();
-END//
-
--- SP: Obtener estadísticas de un diagnóstico específico
-DROP PROCEDURE IF EXISTS sp_estadisticas_diagnostico//
-CREATE PROCEDURE sp_estadisticas_diagnostico(IN p_diagnostic_id BIGINT)
-BEGIN
-    SELECT 
-        COUNT(*) as total_intentos,
-        SUM(CASE WHEN passed = 1 THEN 1 ELSE 0 END) as total_aprobados,
-        ROUND(AVG(score_percentage), 2) as promedio_puntaje,
-        MIN(score_percentage) as puntaje_minimo,
-        MAX(score_percentage) as puntaje_maximo,
-        ROUND(AVG(time_taken_minutes), 2) as tiempo_promedio,
-        ROUND((SUM(CASE WHEN passed = 1 THEN 1 ELSE 0 END) / COUNT(*)) * 100, 2) as porcentaje_aprobacion
-    FROM diagnostic_results
-    WHERE diagnostic_id = p_diagnostic_id;
-END//
-
--- SP: Obtener top estudiantes en un diagnóstico
-DROP PROCEDURE IF EXISTS sp_top_estudiantes_diagnostico//
-CREATE PROCEDURE sp_top_estudiantes_diagnostico(
-    IN p_diagnostic_id BIGINT,
-    IN p_limit INT
-)
-BEGIN
-    SELECT 
-        dr.user_id,
-        u.name as student_name,
-        u.email,
-        dr.score_percentage,
-        dr.time_taken_minutes,
-        dr.completed_at
-    FROM diagnostic_results dr
-    INNER JOIN users u ON dr.user_id = u.id
-    WHERE dr.diagnostic_id = p_diagnostic_id
-    ORDER BY dr.score_percentage DESC, dr.time_taken_minutes ASC
-    LIMIT p_limit;
-END//
-
--- SP: Obtener preguntas más difíciles (menor tasa de acierto)
-DROP PROCEDURE IF EXISTS sp_preguntas_mas_dificiles//
-CREATE PROCEDURE sp_preguntas_mas_dificiles(
-    IN p_diagnostic_id BIGINT,
-    IN p_limit INT
-)
-BEGIN
-    SELECT 
-        dq.id,
-        dq.question_text,
-        dq.question_type,
-        COUNT(dr.id) as total_respuestas,
-        SUM(CASE WHEN dr.is_correct = 1 THEN 1 ELSE 0 END) as respuestas_correctas,
-        ROUND((SUM(CASE WHEN dr.is_correct = 1 THEN 1 ELSE 0 END) / COUNT(dr.id)) * 100, 2) as tasa_acierto
-    FROM diagnostic_questions dq
-    LEFT JOIN diagnostic_responses dr ON dq.id = dr.question_id
-    WHERE dq.diagnostic_id = p_diagnostic_id
-    GROUP BY dq.id, dq.question_text, dq.question_type
-    HAVING COUNT(dr.id) > 0
-    ORDER BY tasa_acierto ASC
-    LIMIT p_limit;
-END//
-
--- SP: Obtener progreso de diagnósticos de un usuario
-DROP PROCEDURE IF EXISTS sp_progreso_diagnosticos_usuario//
-CREATE PROCEDURE sp_progreso_diagnosticos_usuario(IN p_user_id BIGINT)
-BEGIN
-    SELECT 
-        d.id as diagnostic_id,
-        d.title,
-        d.subject_area,
-        d.difficulty_level,
-        dr.score_percentage,
-        dr.passed,
-        dr.completed_at,
-        CASE 
-            WHEN dr.id IS NULL THEN 'no_iniciado'
-            WHEN dr.completed_at IS NOT NULL THEN 'completado'
-            ELSE 'en_progreso'
-        END as status
-    FROM diagnostics d
-    LEFT JOIN diagnostic_results dr ON d.id = dr.diagnostic_id AND dr.user_id = p_user_id
-    WHERE d.active = 1
-    ORDER BY 
-    CASE WHEN dr.completed_at IS NULL THEN 1 ELSE 0 END,
-    dr.completed_at DESC,
-    d.created_at DESC;
-END//
-
--- SP: Obtener respuestas de un usuario en un diagnóstico
-DROP PROCEDURE IF EXISTS sp_respuestas_usuario_diagnostico//
-CREATE PROCEDURE sp_respuestas_usuario_diagnostico(
-    IN p_user_id BIGINT,
-    IN p_diagnostic_id BIGINT
-)
-BEGIN
-    SELECT 
-        dr.id,
-        dr.question_id,
-        dq.question_text,
-        dq.question_type,
-        dq.options,
-        dr.user_answer,
-        dq.correct_answer,
-        dr.is_correct,
-        dr.points_earned,
-        dq.points as max_points,
-        dr.time_spent_seconds
-    FROM diagnostic_responses dr
-    INNER JOIN diagnostic_questions dq ON dr.question_id = dq.id
-    WHERE dr.user_id = p_user_id 
-    AND dr.diagnostic_id = p_diagnostic_id
-    ORDER BY dq.order_index;
-END//
-
--- SP: Comparar rendimiento de un usuario con el promedio
-DROP PROCEDURE IF EXISTS sp_comparar_rendimiento_usuario//
-CREATE PROCEDURE sp_comparar_rendimiento_usuario(
-    IN p_user_id BIGINT,
-    IN p_diagnostic_id BIGINT
-)
-BEGIN
-    SELECT 
-        dr_user.score_percentage as puntaje_usuario,
-        AVG(dr_all.score_percentage) as puntaje_promedio,
-        dr_user.time_taken_minutes as tiempo_usuario,
-        AVG(dr_all.time_taken_minutes) as tiempo_promedio,
-        CASE 
-            WHEN dr_user.score_percentage > AVG(dr_all.score_percentage) THEN 'superior'
-            WHEN dr_user.score_percentage = AVG(dr_all.score_percentage) THEN 'igual'
-            ELSE 'inferior'
-        END as comparacion_rendimiento
-    FROM diagnostic_results dr_user
-    CROSS JOIN diagnostic_results dr_all
-    WHERE dr_user.user_id = p_user_id
-    AND dr_user.diagnostic_id = p_diagnostic_id
-    AND dr_all.diagnostic_id = p_diagnostic_id
-    GROUP BY dr_user.id, dr_user.score_percentage, dr_user.time_taken_minutes;
-END//
-
--- SP: Obtener diagnósticos pendientes de un usuario
-DROP PROCEDURE IF EXISTS sp_diagnosticos_pendientes_usuario//
-CREATE PROCEDURE sp_diagnosticos_pendientes_usuario(IN p_user_id BIGINT)
-BEGIN
-    SELECT 
-        d.id,
-        d.title,
-        d.description,
-        d.subject_area,
-        d.difficulty_level,
-        d.time_limit_minutes
-    FROM diagnostics d
-    WHERE d.active = 1
-    AND d.id NOT IN (
-        SELECT diagnostic_id 
-        FROM diagnostic_results 
-        WHERE user_id = p_user_id
-    )
-    ORDER BY d.created_at DESC;
-END//
-
--- SP: Obtener áreas con bajo rendimiento de un usuario
-DROP PROCEDURE IF EXISTS sp_areas_bajo_rendimiento_usuario//
-CREATE PROCEDURE sp_areas_bajo_rendimiento_usuario(IN p_user_id BIGINT)
-BEGIN
-    SELECT 
-        d.subject_area,
-        COUNT(*) as total_diagnosticos,
-        ROUND(AVG(dr.score_percentage), 2) as promedio_area,
-        SUM(CASE WHEN dr.passed = 0 THEN 1 ELSE 0 END) as diagnosticos_reprobados
-    FROM diagnostic_results dr
-    INNER JOIN diagnostics d ON dr.diagnostic_id = d.id
-    WHERE dr.user_id = p_user_id
-    GROUP BY d.subject_area
-    HAVING AVG(dr.score_percentage) < 70
-    ORDER BY promedio_area ASC;
-END//
-
-DELIMITER ;
-
--- ==========================================
--- STORED PROCEDURE PARA CREAR RUTA DE APRENDIZAJE
--- ==========================================
-
-USE `bd_microlearning_uc`;
-
-DELIMITER //
-
-DROP PROCEDURE IF EXISTS sp_crear_ruta_aprendizaje//
-CREATE PROCEDURE sp_crear_ruta_aprendizaje(
-    IN p_user_id BIGINT,
-    IN p_subject_area VARCHAR(100),
-    IN p_name VARCHAR(255),
-    IN p_description TEXT,
-    IN p_difficulty_level VARCHAR(20),
-    IN p_estimated_duration INT
-)
-BEGIN
-    -- Validar que el usuario exista
-    DECLARE user_exists INT DEFAULT 0;
-    SELECT COUNT(*) INTO user_exists FROM users WHERE id = p_user_id;
-    
-    IF user_exists = 0 THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Usuario no encontrado';
-    END IF;
-    
-    -- Insertar la ruta
-    INSERT INTO learning_paths (
-        user_id, subject_area, name, description,
-        difficulty_level, estimated_duration,
-        progress_percentage, is_completed,
-        created_at, updated_at
-    ) VALUES (
-        p_user_id, p_subject_area, p_name, p_description,
-        p_difficulty_level, COALESCE(p_estimated_duration, 0),
-        0, 0, NOW(), NOW()
-    );
-    
-    -- Retornar el ID de la ruta creada
-    SELECT LAST_INSERT_ID() as id;
-END//
-
-DELIMITER ;
-
-SELECT '✅ Stored Procedure sp_crear_ruta_aprendizaje creado correctamente' as status;
+SELECT '✓ SCRIPT EJECUTADO CORRECTAMENTE' as status;
+SELECT 'Tabla follow_ups creada/verificada' as tabla_status;
+SELECT 'Stored Procedures reestructurados y agrupados por sección.' as reestructuracion_status;
 
 -- Ver todos los procedimientos creados
 SHOW PROCEDURE STATUS WHERE Db = 'bd_microlearning_uc';
 
--- Probar el procedimiento específico
-CALL sp_progreso_diagnosticos_usuario(123);
-SELECT '✅ Stored Procedures adicionales para diagnósticos creados' as status;
--- =============================================
--- VERIFICACIÓN FINAL
--- =============================================
-SELECT '✓ SCRIPT EJECUTADO CORRECTAMENTE' as status;
-SELECT 'Tabla follow_ups creada/verificada' as tabla_status;
+-- Ejemplo de llamada para verificación final
+-- CALL sp_progreso_diagnosticos_usuario(123);
